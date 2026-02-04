@@ -75,5 +75,19 @@ export default defineConfig({
         manualChunks: undefined
       }
     }
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      // Proxy API requests to backend
+      '/management': {
+        target: 'http://localhost:8317',
+        changeOrigin: true
+      },
+      '/v1': {
+        target: 'http://localhost:8317',
+        changeOrigin: true
+      }
+    }
   }
 });
