@@ -80,14 +80,19 @@ export default defineConfig({
     port: 5173,
     proxy: {
       // Proxy API requests to backend
-      '/management': {
+      '/v0': {
         target: 'http://localhost:8317',
         changeOrigin: true
       },
       '/v1': {
         target: 'http://localhost:8317',
         changeOrigin: true
+      },
+      '/management': {
+        target: 'http://localhost:8317',
+        changeOrigin: true
       }
     }
   }
+
 });

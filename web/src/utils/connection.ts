@@ -11,6 +11,7 @@ export const normalizeApiBase = (input: string): string => {
   return base;
 };
 
+
 export const computeApiUrl = (base: string): string => {
   const normalized = normalizeApiBase(base);
   if (!normalized) return '';

@@ -48,6 +48,11 @@ class ApiClient {
   private normalizeApiBase(base: string): string {
     let normalized = base.trim();
 
+    // 如果 base 为空（开发模式同源请求），直接返回相对路径
+    if (!normalized) {
+      return MANAGEMENT_API_PREFIX;
+    }
+
     // 移除尾部的 /v0/management
     normalized = normalized.replace(/\/?v0\/management\/?$/i, '');
 
@@ -59,8 +64,23 @@ class ApiClient {
       normalized = `http://${normalized}`;
     }
 
+    // 在开发模式下，如果目标地址与当前页面同源，使用相对路径以便 Vite 代理生效
+    if (typeof window !== 'undefined') {
+      try {
+        const targetUrl = new URL(normalized);
+        const currentOrigin = window.location.origin;
+        // 如果目标与当前页面同源，使用相对路径
+        if (targetUrl.origin === currentOrigin) {
+          return MANAGEMENT_API_PREFIX;
+        }
+      } catch {
+        // URL 解析失败，继续使用完整路径
+      }
+    }
+
     return `${normalized}${MANAGEMENT_API_PREFIX}`;
   }
+
 
   private readHeader(headers: Record<string, any> | undefined, keys: string[]): string | null {
     if (!headers) return null;
