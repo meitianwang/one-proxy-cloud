@@ -21,6 +21,7 @@ import {
   IconInfo,
   IconKey,
   IconLayoutDashboard,
+  IconRocket,
   IconScrollText,
   IconSettings,
   IconShield,
@@ -39,6 +40,7 @@ import { configApi } from '@/services/api';
 import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
 
 const sidebarIcons: Record<string, ReactNode> = {
+  quickStart: <IconRocket size={18} />,
   dashboard: <IconLayoutDashboard size={18} />,
   settings: <IconSlidersHorizontal size={18} />,
   apiKeys: <IconKey size={18} />,
@@ -296,6 +298,7 @@ export function MainLayout() {
           : 'muted';
 
   const navItems = [
+    { path: '/quick-start', label: t('nav.quick_start'), icon: sidebarIcons.quickStart },
     { path: '/', label: t('nav.dashboard'), icon: sidebarIcons.dashboard },
     { path: '/settings', label: t('nav.basic_settings'), icon: sidebarIcons.settings },
     { path: '/api-keys', label: t('nav.api_keys'), icon: sidebarIcons.apiKeys },

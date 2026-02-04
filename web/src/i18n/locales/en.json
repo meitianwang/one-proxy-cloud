@@ -94,6 +94,7 @@
     "status": "Connection Status:"
   },
   "nav": {
+    "quick_start": "Quick Start",
     "dashboard": "Dashboard",
     "basic_settings": "Basic Settings",
     "api_keys": "API Keys",
@@ -933,5 +934,27 @@
     "build_date": "Build Time",
     "version": "Management UI Version",
     "author": "Author"
+  },
+  "quick_start": {
+    "title": "Quick Start",
+    "subtitle": "Learn how to configure your clients to use the OneProxy service",
+    "connection_info": "Connection Information",
+    "proxy_url": "Proxy URL",
+    "openai_endpoint": "OpenAI Endpoint",
+    "claude_endpoint": "Claude Endpoint",
+    "api_key_title": "API Key Setup",
+    "api_key_hint": "If you have configured API keys in the \"API Keys\" page, use the same key in your client. If not configured, you can use any string.",
+    "api_key_step1": "Go to \"API Keys\" page to add a key (optional)",
+    "api_key_step2": "Enter the key in your client configuration",
+    "api_key_step3": "Ensure the Base URL points to the correct proxy address",
+    "multi_protocol_title": "Multi-Protocol Support",
+    "multi_protocol_desc": "Supports OpenAI, Anthropic, and Gemini protocols",
+    "protocol_openai": "OpenAI Protocol",
+    "protocol_anthropic": "Anthropic Protocol",
+    "protocol_gemini": "Gemini Protocol",
+    "select_model": "Select Model",
+    "test_command": "Test Command",
+    "copy_success": "Copied to clipboard",
+    "copied": "Copied"
   }
 }

@@ -7,7 +7,7 @@ set -e
 
 # 配置
 BACKEND_PORT=${BACKEND_PORT:-8317}
-FRONTEND_PORT=${FRONTEND_PORT:-5173}
+FRONTEND_PORT=${FRONTEND_PORT:-5174}
 CONFIG_FILE=${CONFIG_FILE:-"config.yaml"}
 MODE=${1:-"prod"}  # prod 或 dev
 
@@ -139,7 +139,7 @@ run_dev() {
 
     log_info "启动前端开发服务器..."
     cd "$SCRIPT_DIR/web"
-    npm run dev &
+    FRONTEND_PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT npm run dev &
     FRONTEND_PID=$!
     cd "$SCRIPT_DIR"
 

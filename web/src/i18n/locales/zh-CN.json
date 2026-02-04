@@ -94,6 +94,7 @@
     "status": "连接状态:"
   },
   "nav": {
+    "quick_start": "快速开始",
     "dashboard": "仪表盘",
     "basic_settings": "基础设置",
     "api_keys": "API 密钥",
@@ -933,5 +934,27 @@
     "build_date": "构建时间",
     "version": "管理中心版本",
     "author": "作者"
+  },
+  "quick_start": {
+    "title": "快速开始",
+    "subtitle": "了解如何配置客户端以使用 OneProxy 代理服务",
+    "connection_info": "连接信息",
+    "proxy_url": "代理地址",
+    "openai_endpoint": "OpenAI 接口",
+    "claude_endpoint": "Claude 接口",
+    "api_key_title": "API 密钥设置",
+    "api_key_hint": "如果你在 \"API 密钥\" 页面配置了密钥，需要在客户端中使用相同的密钥。如果没有配置，可以使用任意字符串。",
+    "api_key_step1": "前往 \"API 密钥\" 页面添加密钥（可选）",
+    "api_key_step2": "在客户端配置中填入密钥",
+    "api_key_step3": "确保 Base URL 指向正确的代理地址",
+    "multi_protocol_title": "多协议支持",
+    "multi_protocol_desc": "支持 OpenAI、Anthropic 和 Gemini 协议",
+    "protocol_openai": "OpenAI 协议",
+    "protocol_anthropic": "Anthropic 协议",
+    "protocol_gemini": "Gemini 协议",
+    "select_model": "选择模型",
+    "test_command": "测试命令",
+    "copy_success": "已复制到剪贴板",
+    "copied": "已复制"
   }
 }

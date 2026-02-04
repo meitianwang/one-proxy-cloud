@@ -77,19 +77,19 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173,
+    port: parseInt(process.env.FRONTEND_PORT || '5174', 10),
     proxy: {
       // Proxy API requests to backend
       '/v0': {
-        target: 'http://localhost:8317',
+        target: `http://localhost:${process.env.BACKEND_PORT || '8317'}`,
         changeOrigin: true
       },
       '/v1': {
-        target: 'http://localhost:8317',
+        target: `http://localhost:${process.env.BACKEND_PORT || '8317'}`,
         changeOrigin: true
       },
       '/management': {
-        target: 'http://localhost:8317',
+        target: `http://localhost:${process.env.BACKEND_PORT || '8317'}`,
         changeOrigin: true
       }
     }
