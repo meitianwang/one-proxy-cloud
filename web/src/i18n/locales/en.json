@@ -942,6 +942,7 @@
     "proxy_url": "Proxy URL",
     "openai_endpoint": "OpenAI Endpoint",
     "claude_endpoint": "Claude Endpoint",
+    "gemini_endpoint": "Gemini Endpoint",
     "api_key_title": "API Key Setup",
     "api_key_hint": "If you have configured API keys in the \"API Keys\" page, use the same key in your client. If not configured, you can use any string.",
     "api_key_step1": "Go to \"API Keys\" page to add a key (optional)",

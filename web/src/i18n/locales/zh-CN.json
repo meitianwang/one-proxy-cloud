@@ -942,6 +942,7 @@
     "proxy_url": "代理地址",
     "openai_endpoint": "OpenAI 接口",
     "claude_endpoint": "Claude 接口",
+    "gemini_endpoint": "Gemini 接口",
     "api_key_title": "API 密钥设置",
     "api_key_hint": "如果你在 \"API 密钥\" 页面配置了密钥，需要在客户端中使用相同的密钥。如果没有配置，可以使用任意字符串。",
     "api_key_step1": "前往 \"API 密钥\" 页面添加密钥（可选）",

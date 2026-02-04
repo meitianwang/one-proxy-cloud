@@ -5,7 +5,7 @@ all: build
 
 # Display help information
 help:
-	@echo "CLIProxyAPI Build System"
+	@echo "OneProxy Build System"
 	@echo ""
 	@echo "Usage:"
 	@echo "  make build           Build frontend and backend"
@@ -18,7 +18,7 @@ help:
 
 # Full build: frontend + backend
 build: build-frontend build-backend
-	@echo "Build complete! Binary located at: bin/cli-proxy-api"
+	@echo "Build complete! Binary located at: bin/one-proxy"
 
 # Build frontend (React)
 build-frontend:
@@ -30,7 +30,7 @@ build-frontend:
 build-backend:
 	@echo "Building backend..."
 	@mkdir -p bin
-	go build -o bin/cli-proxy-api ./cmd/server/
+	go build -o bin/one-proxy ./cmd/server/
 	@echo "Backend build complete!"
 
 # Clean build artifacts
@@ -45,7 +45,7 @@ clean:
 # Development mode: run frontend dev server and backend
 dev:
 	@echo "Starting development mode..."
-	@echo "Frontend: http://localhost:5173"
+	@echo "Frontend: http://localhost:5174"
 	@echo "Backend:  http://localhost:8317"
 	cd web && npm run dev &
 	go run ./cmd/server/ run
@@ -60,7 +60,7 @@ dev-backend:
 
 # Build Docker image
 docker:
-	docker build -t cli-proxy-api .
+	docker build -t one-proxy .
 
 # Run tests
 test:
@@ -74,3 +74,4 @@ fmt:
 # Lint code
 lint:
 	cd web && npm run lint
+

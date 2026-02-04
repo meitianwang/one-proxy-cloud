@@ -216,7 +216,7 @@ export function QuickStartPage() {
 
         if (selectedProtocol === 'openai') {
             const authHeader = hasApiKey
-                ? `  -H "Authorization: Bearer ${apiKey}" \\\\\n`
+                ? `  -H "Authorization: Bearer ${apiKey}" \\\n`
                 : '';
             return `curl -X POST ${proxyUrl}/v1/chat/completions \\
   -H "Content-Type: application/json" \\
@@ -226,7 +226,7 @@ ${authHeader}  -d '{
   }'`;
         } else if (selectedProtocol === 'anthropic') {
             const authHeader = hasApiKey
-                ? `  -H "x-api-key: ${apiKey}" \\\\\n`
+                ? `  -H "x-api-key: ${apiKey}" \\\n`
                 : '';
             return `curl -X POST ${proxyUrl}/v1/messages \\
   -H "Content-Type: application/json" \\
@@ -312,6 +312,22 @@ ${authHeader}  -H "anthropic-version: 2024-01-01" \\
                             </Button>
                         </div>
                     </div>
+                    <div className={styles.infoRow}>
+                        <span className={styles.infoLabel}>{t('quick_start.gemini_endpoint')}</span>
+                        <div className={styles.infoValue}>
+                            <code className={styles.urlCode}>{proxyUrl}/gemini/v1beta</code>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    copyToClipboard(`${proxyUrl}/gemini/v1beta`);
+                                    showNotification(t('quick_start.copy_success'), 'success');
+                                }}
+                            >
+                                {t('common.copy')}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </Card>
 
@@ -378,73 +394,6 @@ ${authHeader}  -H "anthropic-version: 2024-01-01" \\
                         </pre>
                     </div>
                 </div>
-            </Card>
-
-            {/* API Key Reminder */}
-            <Card title={t('quick_start.api_key_title')}>
-                <p className={styles.hint}>{t('quick_start.api_key_hint')}</p>
-                <div className={styles.apiKeySteps}>
-                    <div className={styles.step}>
-                        <span className={styles.stepNumber}>1</span>
-                        <span>{t('quick_start.api_key_step1')}</span>
-                    </div>
-                    <div className={styles.step}>
-                        <span className={styles.stepNumber}>2</span>
-                        <span>{t('quick_start.api_key_step2')}</span>
-                    </div>
-                    <div className={styles.step}>
-                        <span className={styles.stepNumber}>3</span>
-                        <span>{t('quick_start.api_key_step3')}</span>
-                    </div>
-                </div>
-            </Card>
-
-            {/* Available Models - Dynamic like SystemPage */}
-            <Card
-                title={t('system_info.models_title')}
-                extra={
-                    <Button variant="secondary" size="sm" onClick={() => fetchModels({ forceRefresh: true })} loading={modelsLoading}>
-                        {t('common.refresh')}
-                    </Button>
-                }
-            >
-                <p className={styles.hint}>{t('system_info.models_desc')}</p>
-                {modelStatus && <div className={`status-badge ${modelStatus.type}`}>{modelStatus.message}</div>}
-                {modelsError && <div className="error-box">{modelsError}</div>}
-                {modelsLoading ? (
-                    <div className="hint">{t('common.loading')}</div>
-                ) : models.length === 0 ? (
-                    <div className="hint">{t('system_info.models_empty')}</div>
-                ) : (
-                    <div className="item-list">
-                        {groupedModels.map((group) => {
-                            const iconSrc = getIconForCategory(group.id);
-                            return (
-                                <div key={group.id} className="item-row">
-                                    <div className="item-meta">
-                                        <div className={styles.groupTitle}>
-                                            {iconSrc && <img src={iconSrc} alt="" className={styles.groupIcon} />}
-                                            <span className="item-title">{group.label}</span>
-                                        </div>
-                                        <div className="item-subtitle">{t('system_info.models_count', { count: group.items.length })}</div>
-                                    </div>
-                                    <div className={styles.modelTags}>
-                                        {group.items.map((model) => (
-                                            <span
-                                                key={`${model.name}-${model.alias ?? 'default'}`}
-                                                className={styles.modelTag}
-                                                title={model.description || ''}
-                                            >
-                                                <span className={styles.modelName}>{model.name}</span>
-                                                {model.alias && <span className={styles.modelAlias}>{model.alias}</span>}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
             </Card>
         </div>
     );

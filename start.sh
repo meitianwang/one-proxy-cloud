@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# CLIProxyAPI 一键启动脚本
+# OneProxy 一键启动脚本
 # 自动构建前端、启动后端，并处理端口占用问题
 
 set -e
@@ -183,7 +183,7 @@ run_backend_only() {
 
 # 显示帮助
 show_help() {
-    echo "CLIProxyAPI 启动脚本"
+    echo "OneProxy 启动脚本"
     echo ""
     echo "用法: ./start.sh [模式]"
     echo ""
