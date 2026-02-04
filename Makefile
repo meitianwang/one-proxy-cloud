@@ -31,6 +31,7 @@ build-backend:
 	@echo "Building backend..."
 	@mkdir -p bin
 	go build -o bin/one-proxy ./cmd/server/
+	cp config.example.yaml bin/
 	@echo "Backend build complete!"
 
 # Clean build artifacts

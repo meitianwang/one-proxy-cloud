@@ -38,7 +38,7 @@ ARG COMMIT=none
 ARG BUILD_DATE=unknown
 
 # Build the binary with embedded frontend
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X 'main.Version=${VERSION}' -X 'main.Commit=${COMMIT}' -X 'main.BuildDate=${BUILD_DATE}'" -o ./CLIProxyAPI ./cmd/server/
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X 'main.Version=${VERSION}' -X 'main.Commit=${COMMIT}' -X 'main.BuildDate=${BUILD_DATE}'" -o ./one-proxy ./cmd/server/
 
 # Stage 3: Final minimal image
 FROM alpine:3.22.0
@@ -47,15 +47,15 @@ FROM alpine:3.22.0
 RUN apk add --no-cache tzdata
 
 # Create application directory
-RUN mkdir /CLIProxyAPI
+RUN mkdir /one-proxy
 
 # Copy binary from builder
-COPY --from=backend-builder /app/CLIProxyAPI /CLIProxyAPI/CLIProxyAPI
+COPY --from=backend-builder /app/one-proxy /one-proxy/one-proxy
 
 # Copy example config
-COPY config.example.yaml /CLIProxyAPI/config.example.yaml
+COPY config.example.yaml /one-proxy/config.example.yaml
 
-WORKDIR /CLIProxyAPI
+WORKDIR /one-proxy
 
 # Expose default port
 EXPOSE 8317
@@ -65,4 +65,5 @@ ENV TZ=Asia/Shanghai
 RUN cp /usr/share/zoneinfo/${TZ} /etc/localtime && echo "${TZ}" > /etc/timezone
 
 # Run the application
-CMD ["./CLIProxyAPI"]
+CMD ["./one-proxy"]
+
