@@ -646,6 +646,14 @@ func (s *Server) serveManagementControlPanel(c *gin.Context) {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
+
+	// Priority 1: Use embedded HTML if available
+	if managementasset.HasEmbeddedHTML() {
+		c.Data(http.StatusOK, "text/html; charset=utf-8", managementasset.EmbeddedManagementHTML)
+		return
+	}
+
+	// Priority 2: Fall back to file system (for development or legacy compatibility)
 	filePath := managementasset.FilePath(s.configFilePath)
 	if strings.TrimSpace(filePath) == "" {
 		c.AbortWithStatus(http.StatusNotFound)

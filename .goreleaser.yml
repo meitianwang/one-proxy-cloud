@@ -1,3 +1,13 @@
+# GoReleaser configuration for CLIProxyAPI
+# This configuration builds the frontend before compiling the Go binary
+
+before:
+  hooks:
+    # Ensure go.mod is tidy
+    - go mod tidy
+    # Build frontend (requires Node.js and npm in the build environment)
+    - bash -c "cd web && npm ci && npm run build"
+
 builds:
   - id: "cli-proxy-api"
     env:
@@ -13,6 +23,7 @@ builds:
     binary: cli-proxy-api
     ldflags:
       - -s -w -X 'main.Version={{.Version}}' -X 'main.Commit={{.ShortCommit}}' -X 'main.BuildDate={{.Date}}'
+
 archives:
   - id: "cli-proxy-api"
     format: tar.gz
