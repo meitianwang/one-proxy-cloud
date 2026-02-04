@@ -147,13 +147,11 @@ const headerIcons = {
 
 
 export function MainLayout() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
   const location = useLocation();
 
   const apiBase = useAuthStore((state) => state.apiBase);
-  const serverVersion = useAuthStore((state) => state.serverVersion);
-  const serverBuildDate = useAuthStore((state) => state.serverBuildDate);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const logout = useAuthStore((state) => state.logout);
 
@@ -177,8 +175,6 @@ export function MainLayout() {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const brandCollapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
-  const versionTapCount = useRef(0);
-  const versionTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fullBrandName = 'OneProxy Management Center';
   const abbrBrandName = t('title.abbr');
@@ -235,13 +231,7 @@ export function MainLayout() {
     }
   }, [requestLogModalOpen, requestLogTouched, requestLogEnabled]);
 
-  useEffect(() => {
-    return () => {
-      if (versionTapTimer.current) {
-        clearTimeout(versionTapTimer.current);
-      }
-    };
-  }, []);
+
 
   const handleBrandClick = useCallback(() => {
     if (!brandExpanded) {
@@ -256,35 +246,14 @@ export function MainLayout() {
     }
   }, [brandExpanded]);
 
-  const openRequestLogModal = useCallback(() => {
-    setRequestLogTouched(false);
-    setRequestLogDraft(requestLogEnabled);
-    setRequestLogModalOpen(true);
-  }, [requestLogEnabled]);
+
 
   const handleRequestLogClose = useCallback(() => {
     setRequestLogModalOpen(false);
     setRequestLogTouched(false);
   }, []);
 
-  const handleVersionTap = useCallback(() => {
-    versionTapCount.current += 1;
-    if (versionTapTimer.current) {
-      clearTimeout(versionTapTimer.current);
-    }
-    versionTapTimer.current = setTimeout(() => {
-      versionTapCount.current = 0;
-    }, 1500);
 
-    if (versionTapCount.current >= 7) {
-      versionTapCount.current = 0;
-      if (versionTapTimer.current) {
-        clearTimeout(versionTapTimer.current);
-        versionTapTimer.current = null;
-      }
-      openRequestLogModal();
-    }
-  }, [openRequestLogModal]);
 
   const handleRequestLogSave = async () => {
     if (!canEditRequestLog) return;
@@ -523,21 +492,6 @@ export function MainLayout() {
               scrollContainerRef={contentRef}
             />
           </main>
-
-          <footer className="footer">
-            <span>
-              {t('footer.api_version')}: {serverVersion || t('system_info.version_unknown')}
-            </span>
-            <span className="footer-version" onClick={handleVersionTap}>
-              {t('footer.version')}: {__APP_VERSION__ || t('system_info.version_unknown')}
-            </span>
-            <span>
-              {t('footer.build_date')}:{' '}
-              {serverBuildDate
-                ? new Date(serverBuildDate).toLocaleString(i18n.language)
-                : t('system_info.version_unknown')}
-            </span>
-          </footer>
         </div>
       </div>
 
