@@ -35,7 +35,7 @@ import {
   useNotificationStore,
   useThemeStore,
 } from '@/stores';
-import { configApi, versionApi } from '@/services/api';
+import { configApi } from '@/services/api';
 import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
 
 const sidebarIcons: Record<string, ReactNode> = {
@@ -73,12 +73,7 @@ const headerIcons = {
       <path d="M21 3v5h-5" />
     </svg>
   ),
-  update: (
-    <svg {...headerIconProps}>
-      <path d="M12 19V5" />
-      <path d="m5 12 7-7 7 7" />
-    </svg>
-  ),
+
   menu: (
     <svg {...headerIconProps}>
       <path d="M4 7h16" />
@@ -149,31 +144,7 @@ const headerIcons = {
   ),
 };
 
-const parseVersionSegments = (version?: string | null) => {
-  if (!version) return null;
-  const cleaned = version.trim().replace(/^v/i, '');
-  if (!cleaned) return null;
-  const parts = cleaned
-    .split(/[^0-9]+/)
-    .filter(Boolean)
-    .map((segment) => Number.parseInt(segment, 10))
-    .filter(Number.isFinite);
-  return parts.length ? parts : null;
-};
 
-const compareVersions = (latest?: string | null, current?: string | null) => {
-  const latestParts = parseVersionSegments(latest);
-  const currentParts = parseVersionSegments(current);
-  if (!latestParts || !currentParts) return null;
-  const length = Math.max(latestParts.length, currentParts.length);
-  for (let i = 0; i < length; i++) {
-    const l = latestParts[i] || 0;
-    const c = currentParts[i] || 0;
-    if (l > c) return 1;
-    if (l < c) return -1;
-  }
-  return 0;
-};
 
 export function MainLayout() {
   const { t, i18n } = useTranslation();
@@ -197,7 +168,7 @@ export function MainLayout() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [checkingVersion, setCheckingVersion] = useState(false);
+
   const [brandExpanded, setBrandExpanded] = useState(true);
   const [requestLogModalOpen, setRequestLogModalOpen] = useState(false);
   const [requestLogDraft, setRequestLogDraft] = useState(false);
@@ -446,34 +417,7 @@ export function MainLayout() {
     showNotification(t('notification.data_refreshed'), 'success');
   };
 
-  const handleVersionCheck = async () => {
-    setCheckingVersion(true);
-    try {
-      const data = await versionApi.checkLatest();
-      const latest = data?.['latest-version'] ?? data?.latest_version ?? data?.latest ?? '';
-      const comparison = compareVersions(latest, serverVersion);
 
-      if (!latest) {
-        showNotification(t('system_info.version_check_error'), 'error');
-        return;
-      }
-
-      if (comparison === null) {
-        showNotification(t('system_info.version_current_missing'), 'warning');
-        return;
-      }
-
-      if (comparison > 0) {
-        showNotification(t('system_info.version_update_available', { version: latest }), 'warning');
-      } else {
-        showNotification(t('system_info.version_is_latest'), 'success');
-      }
-    } catch (error: any) {
-      showNotification(`${t('system_info.version_check_error')}: ${error?.message || ''}`, 'error');
-    } finally {
-      setCheckingVersion(false);
-    }
-  };
 
   return (
     <div className="app-shell">
@@ -532,15 +476,7 @@ export function MainLayout() {
             >
               {headerIcons.refresh}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleVersionCheck}
-              loading={checkingVersion}
-              title={t('system_info.version_check_button')}
-            >
-              {headerIcons.update}
-            </Button>
+
             <Button variant="ghost" size="sm" onClick={toggleLanguage} title={t('language.switch')}>
               {headerIcons.language}
             </Button>
