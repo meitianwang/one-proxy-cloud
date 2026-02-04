@@ -434,20 +434,52 @@ func extractCodexIDTokenClaims(auth *coreauth.Auth) gin.H {
 	if !strings.EqualFold(strings.TrimSpace(auth.Provider), "codex") {
 		return nil
 	}
-	idTokenRaw, ok := auth.Metadata["id_token"].(string)
-	if !ok {
-		return nil
-	}
-	idToken := strings.TrimSpace(idTokenRaw)
-	if idToken == "" {
-		return nil
-	}
-	claims, err := codex.ParseJWTToken(idToken)
-	if err != nil || claims == nil {
-		return nil
-	}
 
 	result := gin.H{}
+
+	// First, check if chatgpt_account_id is directly stored in metadata (tauri-cliproxy format)
+	if v, ok := auth.Metadata["chatgpt_account_id"].(string); ok && strings.TrimSpace(v) != "" {
+		result["chatgpt_account_id"] = strings.TrimSpace(v)
+	}
+
+	// Try to get plan_type from metadata
+	if v, ok := auth.Metadata["codex_plan_type"].(string); ok && strings.TrimSpace(v) != "" {
+		result["plan_type"] = strings.TrimSpace(v)
+	}
+
+	// If we already have chatgpt_account_id from metadata, return early
+	if _, hasAccountID := result["chatgpt_account_id"]; hasAccountID {
+		return result
+	}
+
+	// Try parsing id_token first
+	var claims *codex.JWTClaims
+	if idTokenRaw, ok := auth.Metadata["id_token"].(string); ok {
+		if idToken := strings.TrimSpace(idTokenRaw); idToken != "" {
+			if parsed, err := codex.ParseJWTToken(idToken); err == nil && parsed != nil {
+				claims = parsed
+			}
+		}
+	}
+
+	// Fallback to parsing access_token if id_token is not available
+	if claims == nil {
+		if accessTokenRaw, ok := auth.Metadata["access_token"].(string); ok {
+			if accessToken := strings.TrimSpace(accessTokenRaw); accessToken != "" {
+				if parsed, err := codex.ParseJWTToken(accessToken); err == nil && parsed != nil {
+					claims = parsed
+				}
+			}
+		}
+	}
+
+	if claims == nil {
+		if len(result) == 0 {
+			return nil
+		}
+		return result
+	}
+
 	if v := strings.TrimSpace(claims.CodexAuthInfo.ChatgptAccountID); v != "" {
 		result["chatgpt_account_id"] = v
 	}
