@@ -28,6 +28,7 @@
     "not_set": "未设置",
     "optional": "可选",
     "required": "必填",
+    "more": "更多",
     "api_key": "密钥",
     "base_url": "地址",
     "prefix": "前缀",
@@ -856,6 +857,9 @@
     "clear_login_desc": "清理本地保存的登录信息并退出登录，不会影响使用统计中的价格设置。",
     "clear_login_button": "清理登录信息",
     "clear_login_confirm": "确认清理本地登录信息并退出登录？"
+  },
+  "quota": {
+    "load_error": "配额加载失败"
   },
   "notification": {
     "debug_updated": "调试设置已更新",

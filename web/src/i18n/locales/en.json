@@ -28,6 +28,7 @@
     "not_set": "Not set",
     "optional": "Optional",
     "required": "Required",
+    "more": "more",
     "api_key": "Key",
     "base_url": "Address",
     "prefix": "Prefix",
@@ -856,6 +857,9 @@
     "clear_login_desc": "Clear locally saved login data and sign out. Usage stats pricing settings will remain untouched.",
     "clear_login_button": "Clear login data",
     "clear_login_confirm": "Clear local login data and sign out now?"
+  },
+  "quota": {
+    "load_error": "Failed to load quota"
   },
   "notification": {
     "debug_updated": "Debug settings updated",

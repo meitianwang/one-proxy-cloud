@@ -17,10 +17,10 @@ import {
   IconInfo,
   IconTrash2,
 } from '@/components/ui/icons';
-import { useAuthStore, useNotificationStore, useThemeStore } from '@/stores';
+import { useAuthStore, useNotificationStore, useThemeStore, useQuotaStore } from '@/stores';
 import { authFilesApi, usageApi } from '@/services/api';
 import { apiClient } from '@/services/api/client';
-import type { AuthFileItem, OAuthModelAliasEntry } from '@/types';
+import type { AuthFileItem, OAuthModelAliasEntry, AntigravityQuotaState, CodexQuotaState, GeminiCliQuotaState } from '@/types';
 import {
   calculateStatusBarData,
   collectUsageDetails,
@@ -29,6 +29,17 @@ import {
   type KeyStats,
   type UsageDetail,
 } from '@/utils/usage';
+import {
+  isAntigravityFile,
+  isCodexFile,
+  isGeminiCliFile,
+  formatQuotaResetTime,
+} from '@/utils/quota';
+import {
+  ANTIGRAVITY_CONFIG,
+  CODEX_CONFIG,
+  GEMINI_CLI_CONFIG,
+} from '@/components/quota/quotaConfigs';
 import { formatFileSize } from '@/utils/format';
 import styles from './AuthFilesPage.module.scss';
 
@@ -214,6 +225,14 @@ export function AuthFilesPage() {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [batchOperating, setBatchOperating] = useState(false);
 
+  // 配额 store
+  const antigravityQuota = useQuotaStore((state) => state.antigravityQuota);
+  const codexQuota = useQuotaStore((state) => state.codexQuota);
+  const geminiCliQuota = useQuotaStore((state) => state.geminiCliQuota);
+  const setAntigravityQuota = useQuotaStore((state) => state.setAntigravityQuota);
+  const setCodexQuota = useQuotaStore((state) => state.setCodexQuota);
+  const setGeminiCliQuota = useQuotaStore((state) => state.setGeminiCliQuota);
+
   // 详情弹窗相关
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<AuthFileItem | null>(null);
@@ -381,6 +400,107 @@ export function AuthFilesPage() {
     }
   }, []);
 
+  // 加载配额数据
+  const loadQuotaForFiles = useCallback(async (targetFiles: AuthFileItem[]) => {
+    if (targetFiles.length === 0) return;
+
+    // 分类文件
+    const antigravityFiles = targetFiles.filter((f) => isAntigravityFile(f) && !f.disabled);
+    const codexFiles = targetFiles.filter((f) => isCodexFile(f) && !f.disabled);
+    const geminiCliFiles = targetFiles.filter((f) => isGeminiCliFile(f) && !f.disabled);
+
+    // 设置 loading 状态
+    if (antigravityFiles.length > 0) {
+      setAntigravityQuota((prev) => {
+        const next = { ...prev };
+        antigravityFiles.forEach((f) => {
+          next[f.name] = ANTIGRAVITY_CONFIG.buildLoadingState();
+        });
+        return next;
+      });
+    }
+    if (codexFiles.length > 0) {
+      setCodexQuota((prev) => {
+        const next = { ...prev };
+        codexFiles.forEach((f) => {
+          next[f.name] = CODEX_CONFIG.buildLoadingState();
+        });
+        return next;
+      });
+    }
+    if (geminiCliFiles.length > 0) {
+      setGeminiCliQuota((prev) => {
+        const next = { ...prev };
+        geminiCliFiles.forEach((f) => {
+          next[f.name] = GEMINI_CLI_CONFIG.buildLoadingState();
+        });
+        return next;
+      });
+    }
+
+    // 并行获取配额
+    const fetchPromises: Promise<void>[] = [];
+
+    antigravityFiles.forEach((file) => {
+      fetchPromises.push(
+        ANTIGRAVITY_CONFIG.fetchQuota(file, t)
+          .then((data) => {
+            setAntigravityQuota((prev) => ({
+              ...prev,
+              [file.name]: ANTIGRAVITY_CONFIG.buildSuccessState(data),
+            }));
+          })
+          .catch((err) => {
+            const msg = err instanceof Error ? err.message : t('common.unknown_error');
+            setAntigravityQuota((prev) => ({
+              ...prev,
+              [file.name]: ANTIGRAVITY_CONFIG.buildErrorState(msg),
+            }));
+          })
+      );
+    });
+
+    codexFiles.forEach((file) => {
+      fetchPromises.push(
+        CODEX_CONFIG.fetchQuota(file, t)
+          .then((data) => {
+            setCodexQuota((prev) => ({
+              ...prev,
+              [file.name]: CODEX_CONFIG.buildSuccessState(data),
+            }));
+          })
+          .catch((err) => {
+            const msg = err instanceof Error ? err.message : t('common.unknown_error');
+            setCodexQuota((prev) => ({
+              ...prev,
+              [file.name]: CODEX_CONFIG.buildErrorState(msg),
+            }));
+          })
+      );
+    });
+
+    geminiCliFiles.forEach((file) => {
+      fetchPromises.push(
+        GEMINI_CLI_CONFIG.fetchQuota(file, t)
+          .then((data) => {
+            setGeminiCliQuota((prev) => ({
+              ...prev,
+              [file.name]: GEMINI_CLI_CONFIG.buildSuccessState(data),
+            }));
+          })
+          .catch((err) => {
+            const msg = err instanceof Error ? err.message : t('common.unknown_error');
+            setGeminiCliQuota((prev) => ({
+              ...prev,
+              [file.name]: GEMINI_CLI_CONFIG.buildErrorState(msg),
+            }));
+          })
+      );
+    });
+
+    await Promise.allSettled(fetchPromises);
+  }, [t, setAntigravityQuota, setCodexQuota, setGeminiCliQuota]);
+
   // 加载 OAuth 排除列表
   const loadExcluded = useCallback(async () => {
     try {
@@ -488,6 +608,23 @@ export function AuthFilesPage() {
   const currentPage = showAll ? 1 : Math.min(page, totalPages);
   const start = showAll ? 0 : (currentPage - 1) * pageSize;
   const pageItems = showAll ? filtered : filtered.slice(start, start + pageSize);
+
+  // 当页面项目变化时加载配额
+  useEffect(() => {
+    if (!loading && pageItems.length > 0) {
+      // 只加载还没有配额数据的文件
+      const filesToLoad = pageItems.filter((file) => {
+        if (file.disabled) return false;
+        if (isAntigravityFile(file) && !antigravityQuota[file.name]) return true;
+        if (isCodexFile(file) && !codexQuota[file.name]) return true;
+        if (isGeminiCliFile(file) && !geminiCliQuota[file.name]) return true;
+        return false;
+      });
+      if (filesToLoad.length > 0) {
+        loadQuotaForFiles(filesToLoad);
+      }
+    }
+  }, [loading, pageItems, antigravityQuota, codexQuota, geminiCliQuota, loadQuotaForFiles]);
 
   // 点击上传
   const handleUploadClick = () => {
@@ -1274,6 +1411,96 @@ export function AuthFilesPage() {
     );
   };
 
+  // 渲染配额进度条
+  const renderQuotaBar = (item: AuthFileItem) => {
+    if (item.disabled) return null;
+
+    let quotaState: AntigravityQuotaState | CodexQuotaState | GeminiCliQuotaState | undefined;
+    let quotaItems: Array<{ label: string; percent: number; resetTime?: string }> = [];
+
+    if (isAntigravityFile(item)) {
+      quotaState = antigravityQuota[item.name];
+      if (quotaState?.status === 'success' && 'groups' in quotaState) {
+        const groups = (quotaState as AntigravityQuotaState).groups || [];
+        quotaItems = groups.map((g) => ({
+          label: g.label,
+          percent: Math.round(Math.max(0, Math.min(1, g.remainingFraction)) * 100),
+          resetTime: formatQuotaResetTime(g.resetTime),
+        }));
+      }
+    } else if (isCodexFile(item)) {
+      quotaState = codexQuota[item.name];
+      if (quotaState?.status === 'success' && 'windows' in quotaState) {
+        const windows = (quotaState as CodexQuotaState).windows || [];
+        quotaItems = windows.map((w) => ({
+          label: w.label,
+          percent: w.usedPercent !== null ? Math.round(100 - w.usedPercent) : 0,
+          resetTime: w.resetLabel,
+        }));
+      }
+    } else if (isGeminiCliFile(item)) {
+      quotaState = geminiCliQuota[item.name];
+      if (quotaState?.status === 'success' && 'buckets' in quotaState) {
+        const buckets = (quotaState as GeminiCliQuotaState).buckets || [];
+        quotaItems = buckets.map((b) => ({
+          label: b.label,
+          percent: b.remainingFraction !== null ? Math.round(b.remainingFraction * 100) : 0,
+          resetTime: formatQuotaResetTime(b.resetTime),
+        }));
+      }
+    }
+
+    if (!quotaState) return null;
+
+    if (quotaState.status === 'loading') {
+      return (
+        <div className={styles.quotaSection}>
+          <div className={styles.quotaLoading}>{t('common.loading')}</div>
+        </div>
+      );
+    }
+
+    if (quotaState.status === 'error') {
+      return (
+        <div className={styles.quotaSection}>
+          <div className={styles.quotaError}>{t('quota.load_error')}</div>
+        </div>
+      );
+    }
+
+    if (quotaItems.length === 0) return null;
+
+    return (
+      <div className={styles.quotaSection}>
+        {quotaItems.slice(0, 3).map((item, idx) => {
+          const fillClass =
+            item.percent >= 60
+              ? styles.quotaBarFillHigh
+              : item.percent >= 20
+                ? styles.quotaBarFillMedium
+                : styles.quotaBarFillLow;
+          return (
+            <div key={idx} className={styles.quotaRow}>
+              <div className={styles.quotaRowHeader}>
+                <span className={styles.quotaModel}>{item.label}</span>
+                <div className={styles.quotaMeta}>
+                  <span className={styles.quotaPercent}>{item.percent}%</span>
+                  {item.resetTime && <span className={styles.quotaReset}>{item.resetTime}</span>}
+                </div>
+              </div>
+              <div className={styles.quotaBar}>
+                <div className={`${styles.quotaBarFill} ${fillClass}`} style={{ width: `${item.percent}%` }} />
+              </div>
+            </div>
+          );
+        })}
+        {quotaItems.length > 3 && (
+          <div className={styles.quotaMore}>+{quotaItems.length - 3} {t('common.more')}</div>
+        )}
+      </div>
+    );
+  };
+
   // 渲染单个认证文件卡片
 	  const renderFileCard = (item: AuthFileItem) => {
 	    const fileStats = resolveAuthFileStats(item, keyStats);
@@ -1331,6 +1558,9 @@ export function AuthFilesPage() {
 
         {/* 状态监测栏 */}
         {renderStatusBar(item)}
+
+        {/* 配额信息 */}
+        {renderQuotaBar(item)}
 
         <div className={styles.cardActions}>
           {showModelsButton && (
