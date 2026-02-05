@@ -494,7 +494,7 @@ export function AuthFilesPage() {
     fileInputRef.current?.click();
   };
 
-  // 处理文件上传（支持多选）
+  // 处理文件上传（支持多选，支持 JSON 数组批量导入）
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = event.target.files;
     if (!fileList || fileList.length === 0) return;
@@ -509,7 +509,8 @@ export function AuthFilesPage() {
         invalidFiles.push(file.name);
         return;
       }
-      if (file.size > MAX_AUTH_FILE_SIZE) {
+      if (file.size > MAX_AUTH_FILE_SIZE * 100) {
+        // 批量文件可能更大，放宽限制
         oversizedFiles.push(file.name);
         return;
       }
@@ -521,7 +522,7 @@ export function AuthFilesPage() {
     }
     if (oversizedFiles.length > 0) {
       showNotification(
-        t('auth_files.upload_error_size', { maxSize: formatFileSize(MAX_AUTH_FILE_SIZE) }),
+        t('auth_files.upload_error_size', { maxSize: formatFileSize(MAX_AUTH_FILE_SIZE * 100) }),
         'error'
       );
     }
@@ -537,8 +538,33 @@ export function AuthFilesPage() {
 
     for (const file of validFiles) {
       try {
-        await authFilesApi.upload(file);
-        successCount++;
+        // 读取文件内容，检测是否为 JSON 数组
+        const text = await file.text();
+        const content = JSON.parse(text);
+
+        if (Array.isArray(content)) {
+          // JSON 数组：拆分成多个文件上传
+          for (const item of content) {
+            if (typeof item !== 'object' || item === null) continue;
+            const filename = item._filename || `auth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
+            // 移除 _filename 字段
+            const { _filename, ...rest } = item;
+            void _filename; // 消除未使用警告
+            const blob = new Blob([JSON.stringify(rest, null, 2)], { type: 'application/json' });
+            const singleFile = new File([blob], filename, { type: 'application/json' });
+            try {
+              await authFilesApi.upload(singleFile);
+              successCount++;
+            } catch (err: unknown) {
+              const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+              failed.push({ name: filename, message: errorMessage });
+            }
+          }
+        } else {
+          // 单个 JSON 对象：直接上传
+          await authFilesApi.upload(file);
+          successCount++;
+        }
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         failed.push({ name: file.name, message: errorMessage });
@@ -546,7 +572,7 @@ export function AuthFilesPage() {
     }
 
     if (successCount > 0) {
-      const suffix = validFiles.length > 1 ? ` (${successCount}/${validFiles.length})` : '';
+      const suffix = successCount > 1 ? ` (${successCount})` : '';
       showNotification(
         `${t('auth_files.upload_success')}${suffix}`,
         failed.length ? 'warning' : 'success'
@@ -556,8 +582,9 @@ export function AuthFilesPage() {
     }
 
     if (failed.length > 0) {
-      const details = failed.map((item) => `${item.name}: ${item.message}`).join('; ');
-      showNotification(`${t('notification.upload_failed')}: ${details}`, 'error');
+      const details = failed.slice(0, 3).map((item) => `${item.name}: ${item.message}`).join('; ');
+      const more = failed.length > 3 ? ` (+${failed.length - 3})` : '';
+      showNotification(`${t('notification.upload_failed')}: ${details}${more}`, 'error');
     }
 
     setUploading(false);
@@ -957,7 +984,7 @@ export function AuthFilesPage() {
     });
   };
 
-  // 批量下载
+  // 批量下载 - 合并成一个 JSON 数组文件
   const handleBatchDownload = async () => {
     if (selectedFiles.size === 0) return;
     const filesToDownload = Array.from(selectedFiles).filter((name) => {
@@ -967,32 +994,35 @@ export function AuthFilesPage() {
     if (filesToDownload.length === 0) return;
 
     setBatchOperating(true);
-    let successCount = 0;
+    const allContents: Array<{ _filename: string; [key: string]: unknown }> = [];
+
     for (const name of filesToDownload) {
       try {
         const response = await apiClient.getRaw(
           `/auth-files/download?name=${encodeURIComponent(name)}`,
-          { responseType: 'blob' }
+          { responseType: 'text' }
         );
-        const blob = new Blob([response.data]);
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        a.click();
-        window.URL.revokeObjectURL(url);
-        successCount++;
-        // 添加小延迟避免浏览器阻止多个下载
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        const content = JSON.parse(response.data as string);
+        // 添加 _filename 字段以便导入时还原文件名
+        allContents.push({ _filename: name, ...content });
       } catch {
         // ignore individual failures
       }
     }
+
+    if (allContents.length > 0) {
+      const blob = new Blob([JSON.stringify(allContents, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `auth-files-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      showNotification(t('auth_files.batch_download_success', { count: allContents.length }), 'success');
+    }
+
     setBatchOperating(false);
     setSelectedFiles(new Set());
-    if (successCount > 0) {
-      showNotification(t('auth_files.batch_download_success', { count: successCount }), 'success');
-    }
   };
 
   // 显示详情弹窗
