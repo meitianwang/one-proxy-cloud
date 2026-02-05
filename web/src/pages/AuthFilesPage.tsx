@@ -957,6 +957,44 @@ export function AuthFilesPage() {
     });
   };
 
+  // 批量下载
+  const handleBatchDownload = async () => {
+    if (selectedFiles.size === 0) return;
+    const filesToDownload = Array.from(selectedFiles).filter((name) => {
+      const file = files.find((f) => f.name === name);
+      return file && !isRuntimeOnlyAuthFile(file);
+    });
+    if (filesToDownload.length === 0) return;
+
+    setBatchOperating(true);
+    let successCount = 0;
+    for (const name of filesToDownload) {
+      try {
+        const response = await apiClient.getRaw(
+          `/auth-files/download?name=${encodeURIComponent(name)}`,
+          { responseType: 'blob' }
+        );
+        const blob = new Blob([response.data]);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        successCount++;
+        // 添加小延迟避免浏览器阻止多个下载
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } catch {
+        // ignore individual failures
+      }
+    }
+    setBatchOperating(false);
+    setSelectedFiles(new Set());
+    if (successCount > 0) {
+      showNotification(t('auth_files.batch_download_success', { count: successCount }), 'success');
+    }
+  };
+
   // 显示详情弹窗
   const showDetails = (file: AuthFileItem) => {
     setSelectedFile(file);
@@ -1488,6 +1526,15 @@ export function AuthFilesPage() {
                   loading={batchOperating}
                 >
                   {t('auth_files.batch_disable')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleBatchDownload}
+                  disabled={disableControls || batchOperating}
+                  loading={batchOperating}
+                >
+                  {t('auth_files.batch_download')}
                 </Button>
                 <Button
                   variant="danger"
