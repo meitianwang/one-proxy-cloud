@@ -94,6 +94,7 @@ type AuthFilesUiState = {
   search?: string;
   page?: number;
   pageSize?: number;
+  showAll?: boolean;
 };
 
 const readAuthFilesUiState = (): AuthFilesUiState | null => {
@@ -203,6 +204,7 @@ export function AuthFilesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(9);
   const [pageSizeInput, setPageSizeInput] = useState('9');
+  const [showAll, setShowAll] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
@@ -258,11 +260,14 @@ export function AuthFilesPage() {
     if (typeof persisted.pageSize === 'number' && Number.isFinite(persisted.pageSize)) {
       setPageSize(clampCardPageSize(persisted.pageSize));
     }
+    if (typeof persisted.showAll === 'boolean') {
+      setShowAll(persisted.showAll);
+    }
   }, []);
 
   useEffect(() => {
-    writeAuthFilesUiState({ filter, search, page, pageSize });
-  }, [filter, search, page, pageSize]);
+    writeAuthFilesUiState({ filter, search, page, pageSize, showAll });
+  }, [filter, search, page, pageSize, showAll]);
 
   useEffect(() => {
     setPageSizeInput(String(pageSize));
@@ -477,10 +482,10 @@ export function AuthFilesPage() {
   }, [files, filter, search]);
 
   // 分页计算
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const start = (currentPage - 1) * pageSize;
-  const pageItems = filtered.slice(start, start + pageSize);
+  const totalPages = showAll ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = showAll ? 1 : Math.min(page, totalPages);
+  const start = showAll ? 0 : (currentPage - 1) * pageSize;
+  const pageItems = showAll ? filtered : filtered.slice(start, start + pageSize);
 
   // 点击上传
   const handleUploadClick = () => {
@@ -1297,7 +1302,22 @@ export function AuthFilesPage() {
                     e.currentTarget.blur();
                   }
                 }}
+                disabled={showAll}
               />
+            </div>
+            <div className={styles.filterItem}>
+              <Button
+                variant={showAll ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => {
+                  setShowAll(!showAll);
+                  if (showAll) {
+                    setPage(1);
+                  }
+                }}
+              >
+                {showAll ? t('auth_files.view_mode_all') : t('auth_files.view_mode_paged')}
+              </Button>
             </div>
           </div>
         </div>
@@ -1315,7 +1335,7 @@ export function AuthFilesPage() {
         )}
 
         {/* 分页 */}
-        {!loading && filtered.length > pageSize && (
+        {!loading && !showAll && filtered.length > pageSize && (
           <div className={styles.pagination}>
             <Button
               variant="secondary"
