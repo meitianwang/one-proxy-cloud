@@ -430,7 +430,8 @@
     "prefix_placeholder": "",
     "proxy_url_placeholder": "socks5://username:password@proxy_ip:port/",
     "prefix_proxy_invalid_json": "该凭证文件不是 JSON 对象，无法编辑。",
-    "prefix_proxy_saved_success": "已更新 \"{{name}}\""
+    "prefix_proxy_saved_success": "已更新 \"{{name}}\"",
+    "subscription_level": "订阅等级"
   },
   "antigravity_quota": {
     "title": "Antigravity 额度",

@@ -430,7 +430,8 @@
     "prefix_placeholder": "",
     "proxy_url_placeholder": "socks5://username:password@proxy_ip:port/",
     "prefix_proxy_invalid_json": "This credential is not a JSON object and cannot be edited.",
-    "prefix_proxy_saved_success": "Updated \"{{name}}\" successfully"
+    "prefix_proxy_saved_success": "Updated \"{{name}}\" successfully",
+    "subscription_level": "Subscription"
   },
   "antigravity_quota": {
     "title": "Antigravity Quota",

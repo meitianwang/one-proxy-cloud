@@ -1411,6 +1411,27 @@ export function AuthFilesPage() {
     );
   };
 
+  // 获取订阅等级标签
+  const getSubscriptionLabel = (item: AuthFileItem): string | null => {
+    if (isCodexFile(item)) {
+      const quota = codexQuota[item.name];
+      if (quota?.status === 'success' && 'planType' in quota && quota.planType) {
+        const pt = (quota.planType as string).toLowerCase();
+        if (pt === 'plus') return t('codex_quota.plan_plus');
+        if (pt === 'team') return t('codex_quota.plan_team');
+        if (pt === 'free') return t('codex_quota.plan_free');
+        return quota.planType;
+      }
+    }
+    if (isAntigravityFile(item)) {
+      const accountType = item['account_type'] ?? item.accountType;
+      if (typeof accountType === 'string' && accountType.trim()) {
+        return accountType;
+      }
+    }
+    return null;
+  };
+
   // 渲染配额进度条
   const renderQuotaBar = (item: AuthFileItem) => {
     if (item.disabled) return null;
@@ -1468,28 +1489,34 @@ export function AuthFilesPage() {
       );
     }
 
-    if (quotaItems.length === 0) return null;
+    const subscriptionLabel = getSubscriptionLabel(item);
 
     return (
       <div className={styles.quotaSection}>
-        {quotaItems.slice(0, 3).map((item, idx) => {
+        {subscriptionLabel && (
+          <div className={styles.subscriptionRow}>
+            <span className={styles.subscriptionLabel}>{t('auth_files.subscription_level')}</span>
+            <span className={styles.subscriptionValue}>{subscriptionLabel}</span>
+          </div>
+        )}
+        {quotaItems.slice(0, 3).map((qItem, idx) => {
           const fillClass =
-            item.percent >= 60
+            qItem.percent >= 60
               ? styles.quotaBarFillHigh
-              : item.percent >= 20
+              : qItem.percent >= 20
                 ? styles.quotaBarFillMedium
                 : styles.quotaBarFillLow;
           return (
             <div key={idx} className={styles.quotaRow}>
               <div className={styles.quotaRowHeader}>
-                <span className={styles.quotaModel}>{item.label}</span>
+                <span className={styles.quotaModel}>{qItem.label}</span>
                 <div className={styles.quotaMeta}>
-                  <span className={styles.quotaPercent}>{item.percent}%</span>
-                  {item.resetTime && <span className={styles.quotaReset}>{item.resetTime}</span>}
+                  <span className={styles.quotaPercent}>{qItem.percent}%</span>
+                  {qItem.resetTime && <span className={styles.quotaReset}>{qItem.resetTime}</span>}
                 </div>
               </div>
               <div className={styles.quotaBar}>
-                <div className={`${styles.quotaBarFill} ${fillClass}`} style={{ width: `${item.percent}%` }} />
+                <div className={`${styles.quotaBarFill} ${fillClass}`} style={{ width: `${qItem.percent}%` }} />
               </div>
             </div>
           );
