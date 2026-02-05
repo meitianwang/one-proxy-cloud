@@ -211,6 +211,8 @@ export function AuthFilesPage() {
   const [statusUpdating, setStatusUpdating] = useState<Record<string, boolean>>({});
   const [keyStats, setKeyStats] = useState<KeyStats>({ bySource: {}, byAuthIndex: {} });
   const [usageDetails, setUsageDetails] = useState<UsageDetail[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [batchOperating, setBatchOperating] = useState(false);
 
   // 详情弹窗相关
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -839,6 +841,122 @@ export function AuthFilesPage() {
     }
   };
 
+  // 切换选择状态
+  const toggleFileSelection = (name: string) => {
+    setSelectedFiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
+  };
+
+  // 全选/取消全选（仅针对非虚拟文件）
+  const toggleSelectAll = () => {
+    const selectableFiles = pageItems.filter((f) => !isRuntimeOnlyAuthFile(f));
+    const allSelected = selectableFiles.every((f) => selectedFiles.has(f.name));
+    if (allSelected) {
+      // 取消全选
+      setSelectedFiles((prev) => {
+        const next = new Set(prev);
+        selectableFiles.forEach((f) => next.delete(f.name));
+        return next;
+      });
+    } else {
+      // 全选
+      setSelectedFiles((prev) => {
+        const next = new Set(prev);
+        selectableFiles.forEach((f) => next.add(f.name));
+        return next;
+      });
+    }
+  };
+
+  // 批量启用
+  const handleBatchEnable = async () => {
+    if (selectedFiles.size === 0) return;
+    setBatchOperating(true);
+    let successCount = 0;
+    for (const name of selectedFiles) {
+      const file = files.find((f) => f.name === name);
+      if (!file || isRuntimeOnlyAuthFile(file) || !file.disabled) continue;
+      try {
+        await authFilesApi.setStatus(name, false);
+        successCount++;
+      } catch {
+        // ignore individual failures
+      }
+    }
+    await loadFiles();
+    setSelectedFiles(new Set());
+    setBatchOperating(false);
+    if (successCount > 0) {
+      showNotification(t('auth_files.batch_enable_success', { count: successCount }), 'success');
+    }
+  };
+
+  // 批量禁用
+  const handleBatchDisable = async () => {
+    if (selectedFiles.size === 0) return;
+    setBatchOperating(true);
+    let successCount = 0;
+    for (const name of selectedFiles) {
+      const file = files.find((f) => f.name === name);
+      if (!file || isRuntimeOnlyAuthFile(file) || file.disabled) continue;
+      try {
+        await authFilesApi.setStatus(name, true);
+        successCount++;
+      } catch {
+        // ignore individual failures
+      }
+    }
+    await loadFiles();
+    setSelectedFiles(new Set());
+    setBatchOperating(false);
+    if (successCount > 0) {
+      showNotification(t('auth_files.batch_disable_success', { count: successCount }), 'success');
+    }
+  };
+
+  // 批量删除
+  const handleBatchDelete = async () => {
+    if (selectedFiles.size === 0) return;
+    const filesToDelete = Array.from(selectedFiles).filter((name) => {
+      const file = files.find((f) => f.name === name);
+      return file && !isRuntimeOnlyAuthFile(file);
+    });
+    if (filesToDelete.length === 0) return;
+
+    showConfirmation({
+      title: t('auth_files.batch_delete_title'),
+      message: t('auth_files.batch_delete_confirm', { count: filesToDelete.length }),
+      variant: 'danger',
+      confirmText: t('common.confirm'),
+      onConfirm: async () => {
+        setBatchOperating(true);
+        let successCount = 0;
+        for (const name of filesToDelete) {
+          try {
+            await authFilesApi.deleteFile(name);
+            successCount++;
+          } catch {
+            // ignore individual failures
+          }
+        }
+        await loadFiles();
+        await loadKeyStats();
+        setSelectedFiles(new Set());
+        setBatchOperating(false);
+        if (successCount > 0) {
+          showNotification(t('auth_files.batch_delete_success', { count: successCount }), 'success');
+        }
+      },
+    });
+  };
+
   // 显示详情弹窗
   const showDetails = (file: AuthFileItem) => {
     setSelectedFile(file);
@@ -1095,13 +1213,23 @@ export function AuthFilesPage() {
 	    const isAistudio = (item.type || '').toLowerCase() === 'aistudio';
 	    const showModelsButton = !isRuntimeOnly || isAistudio;
 	    const typeColor = getTypeColor(item.type || 'unknown');
+	    const isSelected = selectedFiles.has(item.name);
 
 	    return (
 	      <div
 	        key={item.name}
-	        className={`${styles.fileCard} ${item.disabled ? styles.fileCardDisabled : ''}`}
+	        className={`${styles.fileCard} ${item.disabled ? styles.fileCardDisabled : ''} ${isSelected ? styles.fileCardSelected : ''}`}
 	      >
 	        <div className={styles.cardHeader}>
+	          {!isRuntimeOnly && (
+	            <input
+	              type="checkbox"
+	              className={styles.fileCheckbox}
+	              checked={isSelected}
+	              onChange={() => toggleFileSelection(item.name)}
+	              disabled={disableControls || batchOperating}
+	            />
+	          )}
 	          <span
 	            className={styles.typeBadge}
 	            style={{
@@ -1319,6 +1447,59 @@ export function AuthFilesPage() {
                 {showAll ? t('auth_files.view_mode_all') : t('auth_files.view_mode_paged')}
               </Button>
             </div>
+          </div>
+
+          {/* 批量操作栏 */}
+          <div className={styles.batchActions}>
+            <div className={styles.batchSelectAll}>
+              <input
+                type="checkbox"
+                className={styles.selectAllCheckbox}
+                checked={
+                  pageItems.filter((f) => !isRuntimeOnlyAuthFile(f)).length > 0 &&
+                  pageItems.filter((f) => !isRuntimeOnlyAuthFile(f)).every((f) => selectedFiles.has(f.name))
+                }
+                onChange={toggleSelectAll}
+                disabled={disableControls || batchOperating || pageItems.filter((f) => !isRuntimeOnlyAuthFile(f)).length === 0}
+              />
+              <span>{t('auth_files.select_all')}</span>
+              {selectedFiles.size > 0 && (
+                <span className={styles.selectedCount}>
+                  ({t('auth_files.selected_count', { count: selectedFiles.size })})
+                </span>
+              )}
+            </div>
+            {selectedFiles.size > 0 && (
+              <div className={styles.batchButtons}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleBatchEnable}
+                  disabled={disableControls || batchOperating}
+                  loading={batchOperating}
+                >
+                  {t('auth_files.batch_enable')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleBatchDisable}
+                  disabled={disableControls || batchOperating}
+                  loading={batchOperating}
+                >
+                  {t('auth_files.batch_disable')}
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleBatchDelete}
+                  disabled={disableControls || batchOperating}
+                  loading={batchOperating}
+                >
+                  {t('auth_files.batch_delete')}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 

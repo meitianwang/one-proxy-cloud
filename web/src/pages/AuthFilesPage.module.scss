@@ -127,6 +127,46 @@
   }
 }
 
+.batchActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  background-color: var(--bg-secondary);
+  border-radius: $radius-md;
+  margin-top: $spacing-sm;
+}
+
+.batchSelectAll {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  font-size: 14px;
+  color: var(--text-primary);
+
+  span {
+    user-select: none;
+  }
+}
+
+.selectAllCheckbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.selectedCount {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.batchButtons {
+  display: flex;
+  gap: $spacing-sm;
+}
+
 .filterItem {
   display: flex;
   flex-direction: column;
@@ -467,6 +507,19 @@
     box-shadow: none;
     border-color: var(--border-color);
   }
+}
+
+.fileCardSelected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.fileCheckbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
 }
 
 .cardHeader {
