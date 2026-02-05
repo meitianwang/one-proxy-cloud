@@ -298,8 +298,8 @@ export function MainLayout() {
           : 'muted';
 
   const navItems = [
-    { path: '/quick-start', label: t('nav.quick_start'), icon: sidebarIcons.quickStart },
     { path: '/', label: t('nav.dashboard'), icon: sidebarIcons.dashboard },
+    { path: '/quick-start', label: t('nav.quick_start'), icon: sidebarIcons.quickStart },
     { path: '/settings', label: t('nav.basic_settings'), icon: sidebarIcons.settings },
     { path: '/api-keys', label: t('nav.api_keys'), icon: sidebarIcons.apiKeys },
     { path: '/ai-providers', label: t('nav.ai_providers'), icon: sidebarIcons.aiProviders },

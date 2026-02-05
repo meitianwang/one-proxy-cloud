@@ -2,34 +2,13 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { useAuthStore, useNotificationStore, useConfigStore, useModelsStore, useThemeStore } from '@/stores';
+import { useAuthStore, useNotificationStore, useConfigStore, useModelsStore } from '@/stores';
 import { apiKeysApi } from '@/services/api/apiKeys';
 import { classifyModels } from '@/utils/models';
-import iconGemini from '@/assets/icons/gemini.svg';
-import iconClaude from '@/assets/icons/claude.svg';
-import iconOpenaiLight from '@/assets/icons/openai-light.svg';
-import iconOpenaiDark from '@/assets/icons/openai-dark.svg';
-import iconQwen from '@/assets/icons/qwen.svg';
-import iconKimiLight from '@/assets/icons/kimi-light.svg';
-import iconKimiDark from '@/assets/icons/kimi-dark.svg';
-import iconGlm from '@/assets/icons/glm.svg';
-import iconGrok from '@/assets/icons/grok.svg';
-import iconDeepseek from '@/assets/icons/deepseek.svg';
-import iconMinimax from '@/assets/icons/minimax.svg';
 import { IconCode } from '@/components/ui/icons';
 import styles from './QuickStartPage.module.scss';
 
-const MODEL_CATEGORY_ICONS: Record<string, string | { light: string; dark: string }> = {
-    gpt: { light: iconOpenaiLight, dark: iconOpenaiDark },
-    claude: iconClaude,
-    gemini: iconGemini,
-    qwen: iconQwen,
-    kimi: { light: iconKimiLight, dark: iconKimiDark },
-    glm: iconGlm,
-    grok: iconGrok,
-    deepseek: iconDeepseek,
-    minimax: iconMinimax,
-};
+
 
 // Protocol definitions
 type ProtocolType = 'openai' | 'anthropic' | 'gemini';
@@ -54,17 +33,13 @@ export function QuickStartPage() {
     const { t, i18n } = useTranslation();
     const apiBase = useAuthStore((state) => state.apiBase);
     const connectionStatus = useAuthStore((state) => state.connectionStatus);
-    const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
     const config = useConfigStore((state) => state.config);
     const { showNotification } = useNotificationStore();
 
     const models = useModelsStore((state) => state.models);
-    const modelsLoading = useModelsStore((state) => state.loading);
-    const modelsError = useModelsStore((state) => state.error);
     const fetchModelsFromStore = useModelsStore((state) => state.fetchModels);
 
     const [proxyUrl, setProxyUrl] = useState('');
-    const [modelStatus, setModelStatus] = useState<{ type: 'success' | 'warning' | 'error' | 'muted'; message: string }>();
     const apiKeysCache = useRef<string[]>([]);
 
     // Protocol test state
@@ -102,12 +77,7 @@ export function QuickStartPage() {
         }
     }, [flatModels, selectedModel]);
 
-    const getIconForCategory = (categoryId: string): string | null => {
-        const iconEntry = MODEL_CATEGORY_ICONS[categoryId];
-        if (!iconEntry) return null;
-        if (typeof iconEntry === 'string') return iconEntry;
-        return resolvedTheme === 'dark' ? iconEntry.dark : iconEntry.light;
-    };
+
 
     const normalizeApiKeyList = (input: any): string[] => {
         if (!Array.isArray(input)) return [];
@@ -147,10 +117,6 @@ export function QuickStartPage() {
 
     const fetchModels = async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
         if (connectionStatus !== 'connected') {
-            setModelStatus({
-                type: 'warning',
-                message: t('notification.connection_required')
-            });
             return;
         }
 
@@ -162,30 +128,34 @@ export function QuickStartPage() {
             apiKeysCache.current = [];
         }
 
-        setModelStatus({ type: 'muted', message: t('system_info.models_loading') });
         try {
             const apiKeys = await resolveApiKeysForModels();
             const primaryKey = apiKeys[0];
-            const list = await fetchModelsFromStore(apiBase, primaryKey, forceRefresh);
-            const hasModels = list.length > 0;
-            setModelStatus({
-                type: hasModels ? 'success' : 'warning',
-                message: hasModels ? t('system_info.models_count', { count: list.length }) : t('system_info.models_empty')
-            });
+            await fetchModelsFromStore(apiBase, primaryKey, forceRefresh);
         } catch (err: any) {
-            const message = `${t('system_info.models_error')}: ${err?.message || ''}`;
-            setModelStatus({ type: 'error', message });
+            console.warn('Failed to fetch models:', err?.message);
         }
     };
 
     useEffect(() => {
         // Compute proxy URL from current apiBase or window location
-        if (apiBase) {
-            const base = apiBase.replace(/\/management\/?$/, '').replace(/\/v0\/management\/?$/, '');
-            setProxyUrl(base || window.location.origin);
-        } else {
-            setProxyUrl(window.location.origin);
-        }
+        // In dev mode, replace frontend dev port with backend API port
+        const getProxyUrl = () => {
+            let base = '';
+            if (apiBase) {
+                base = apiBase.replace(/\/management\/?$/, '').replace(/\/v0\/management\/?$/, '');
+            }
+            if (!base) {
+                base = window.location.origin;
+            }
+            // In development mode, Vite runs on 5174 but API is on 8317
+            // Replace dev port with backend port for user-facing URLs
+            if (base.includes(':5174')) {
+                base = base.replace(':5174', ':8317');
+            }
+            return base;
+        };
+        setProxyUrl(getProxyUrl());
     }, [apiBase]);
 
     useEffect(() => {

@@ -28,10 +28,8 @@ interface ProviderStats {
 }
 
 export function DashboardPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const serverVersion = useAuthStore((state) => state.serverVersion);
-  const serverBuildDate = useAuthStore((state) => state.serverBuildDate);
   const apiBase = useAuthStore((state) => state.apiBase);
   const config = useConfigStore((state) => state.config);
 
@@ -242,16 +240,6 @@ export function DashboardPage() {
         </div>
         <div className={styles.connectionInfo}>
           <span className={styles.serverUrl}>{apiBase || '-'}</span>
-          {serverVersion && (
-            <span className={styles.serverVersion}>
-              v{serverVersion.trim().replace(/^[vV]+/, '')}
-            </span>
-          )}
-          {serverBuildDate && (
-            <span className={styles.buildDate}>
-              {new Date(serverBuildDate).toLocaleDateString(i18n.language)}
-            </span>
-          )}
         </div>
       </div>
 
