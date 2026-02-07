@@ -702,17 +702,25 @@ export function AuthFilesPage() {
       return Math.min(...groups.map((g) => g.remainingFraction));
     };
 
-    // Helper to get earliest reset time for Antigravity files
-    const getEarliestResetTime = (file: AuthFileItem): number => {
+    // Helper to get reset time for the quota group with lowest remaining fraction
+    // This is more useful for sorting as it shows when the most depleted quota will recover
+    const getLowestQuotaResetTime = (file: AuthFileItem): number => {
       if (!isAntigravityFile(file)) return Infinity;
       const quota = antigravityQuota[file.name];
       if (quota?.status !== 'success' || !('groups' in quota)) return Infinity;
       const groups = (quota as AntigravityQuotaState).groups || [];
-      const resetTimes = groups
-        .filter((g) => g.resetTime)
-        .map((g) => new Date(g.resetTime!).getTime());
-      if (resetTimes.length === 0) return Infinity;
-      return Math.min(...resetTimes);
+      if (groups.length === 0) return Infinity;
+
+      // Find the group with the lowest remaining fraction
+      let minFraction = Infinity;
+      let resetTime = Infinity;
+      for (const g of groups) {
+        if (g.remainingFraction < minFraction) {
+          minFraction = g.remainingFraction;
+          resetTime = g.resetTime ? new Date(g.resetTime).getTime() : Infinity;
+        }
+      }
+      return resetTime;
     };
 
     sortedList.sort((a, b) => {
@@ -728,7 +736,7 @@ export function AuthFilesPage() {
       } else if (sortBy === 'quota') {
         comparison = getMinQuotaFraction(a) - getMinQuotaFraction(b);
       } else if (sortBy === 'resetTime') {
-        comparison = getEarliestResetTime(a) - getEarliestResetTime(b);
+        comparison = getLowestQuotaResetTime(a) - getLowestQuotaResetTime(b);
       }
       return sortOrder === 'desc' ? -comparison : comparison;
     });
