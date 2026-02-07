@@ -47,6 +47,7 @@ export function QuickStartPage() {
     const [selectedProtocol, setSelectedProtocol] = useState<ProtocolType>('openai');
     const [selectedModel, setSelectedModel] = useState<string>('');
     const [userApiKey, setUserApiKey] = useState<string>('');
+    const [curlPlatform, setCurlPlatform] = useState<'unix' | 'windows'>('unix');
 
     // Claude Code config state
     const [claudeConfig, setClaudeConfig] = useState<ClaudeCodeConfig>({
@@ -224,39 +225,43 @@ export function QuickStartPage() {
     const generateCurlCommand = useMemo(() => {
         const hasApiKey = userApiKey.length > 0;
         const apiKey = userApiKey || 'your-api-key';
+        const isWindows = curlPlatform === 'windows';
+        const lineBreak = isWindows ? ' ^\n' : ' \\\n';
 
         if (selectedProtocol === 'openai') {
             const authHeader = hasApiKey
-                ? `  -H "Authorization: Bearer ${apiKey}" \\\n`
+                ? `  -H "Authorization: Bearer ${apiKey}"${lineBreak}`
                 : '';
-            return `curl -X POST ${proxyUrl}/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-${authHeader}  -d '{
+            const jsonBody = isWindows
+                ? `"{\\"model\\": \\"${selectedModel || 'gpt-4o'}\\", \\"messages\\": [{\\"role\\": \\"user\\", \\"content\\": \\"Hello\\"}]}"`
+                : `'{
     "model": "${selectedModel || 'gpt-4o'}",
     "messages": [{"role": "user", "content": "Hello"}]
   }'`;
+            return `curl -X POST ${proxyUrl}/v1/chat/completions${lineBreak}  -H "Content-Type: application/json"${lineBreak}${authHeader}  -d ${jsonBody}`;
         } else if (selectedProtocol === 'anthropic') {
             const authHeader = hasApiKey
-                ? `  -H "x-api-key: ${apiKey}" \\\n`
+                ? `  -H "x-api-key: ${apiKey}"${lineBreak}`
                 : '';
-            return `curl -X POST ${proxyUrl}/v1/messages \\
-  -H "Content-Type: application/json" \\
-${authHeader}  -H "anthropic-version: 2024-01-01" \\
-  -d '{
+            const jsonBody = isWindows
+                ? `"{\\"model\\": \\"${selectedModel || 'claude-sonnet-4-20250514'}\\", \\"max_tokens\\": 1024, \\"messages\\": [{\\"role\\": \\"user\\", \\"content\\": \\"Hello\\"}]}"`
+                : `'{
     "model": "${selectedModel || 'claude-sonnet-4-20250514'}",
     "max_tokens": 1024,
     "messages": [{"role": "user", "content": "Hello"}]
   }'`;
+            return `curl -X POST ${proxyUrl}/v1/messages${lineBreak}  -H "Content-Type: application/json"${lineBreak}${authHeader}  -H "anthropic-version: 2024-01-01"${lineBreak}  -d ${jsonBody}`;
         } else {
             // Gemini
             const keyParam = hasApiKey ? `?key=${apiKey}` : '';
-            return `curl -X POST "${proxyUrl}/v1beta/models/${selectedModel || 'gemini-2.5-flash'}:generateContent${keyParam}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
+            const jsonBody = isWindows
+                ? `"{\\"contents\\": [{\\"parts\\": [{\\"text\\": \\"Hello\\"}]}]}"`
+                : `'{
     "contents": [{"parts": [{"text": "Hello"}]}]
   }'`;
+            return `curl -X POST "${proxyUrl}/v1beta/models/${selectedModel || 'gemini-2.5-flash'}:generateContent${keyParam}"${lineBreak}  -H "Content-Type: application/json"${lineBreak}  -d ${jsonBody}`;
         }
-    }, [proxyUrl, selectedProtocol, selectedModel, userApiKey]);
+    }, [proxyUrl, selectedProtocol, selectedModel, userApiKey, curlPlatform]);
 
     const handleCopyCommand = async () => {
         const success = await copyToClipboard(generateCurlCommand);
@@ -396,9 +401,27 @@ ${authHeader}  -H "anthropic-version: 2024-01-01" \\
                     <div className={styles.curlOutput}>
                         <div className={styles.curlHeader}>
                             <span className={styles.curlTitle}>{t('quick_start.test_command')} (curl)</span>
-                            <Button variant="ghost" size="sm" onClick={handleCopyCommand}>
-                                {t('common.copy')}
-                            </Button>
+                            <div className={styles.curlActions}>
+                                <div className={styles.platformToggle}>
+                                    <button
+                                        className={`${styles.platformBtn} ${curlPlatform === 'unix' ? styles.active : ''}`}
+                                        onClick={() => setCurlPlatform('unix')}
+                                        title="macOS / Linux"
+                                    >
+                                        Unix
+                                    </button>
+                                    <button
+                                        className={`${styles.platformBtn} ${curlPlatform === 'windows' ? styles.active : ''}`}
+                                        onClick={() => setCurlPlatform('windows')}
+                                        title="Windows CMD"
+                                    >
+                                        Windows
+                                    </button>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={handleCopyCommand}>
+                                    {t('common.copy')}
+                                </Button>
+                            </div>
                         </div>
                         <pre className={styles.curlCode}>
                             <code>{generateCurlCommand}</code>

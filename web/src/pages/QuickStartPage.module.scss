@@ -275,6 +275,43 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
+.curlActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.platformToggle {
+  display: flex;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.platformBtn {
+  padding: 0.25rem 0.625rem;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  &.active {
+    background: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  &:not(:last-child) {
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
+  }
+}
+
 .curlCode {
   margin: 0;
   padding: 1rem;
