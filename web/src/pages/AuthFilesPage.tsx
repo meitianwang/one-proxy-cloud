@@ -672,6 +672,20 @@ export function AuthFilesPage() {
   const sorted = useMemo(() => {
     const sortedList = [...filtered];
 
+    // Helper to parse modtime to timestamp (same logic as formatModified)
+    const parseModTime = (file: AuthFileItem): number => {
+      const raw = file['modtime'] ?? file.modified;
+      if (!raw) return 0;
+      const asNumber = Number(raw);
+      if (Number.isFinite(asNumber) && !Number.isNaN(asNumber)) {
+        // Handle both seconds and milliseconds timestamps
+        return asNumber < 1e12 ? asNumber * 1000 : asNumber;
+      }
+      // Try parsing as date string
+      const date = new Date(String(raw));
+      return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+    };
+
     // Helper to get failure count for a file
     const getFailureCount = (file: AuthFileItem): number => {
       const stats = resolveAuthFileStats(file, keyStats);
@@ -704,9 +718,7 @@ export function AuthFilesPage() {
     sortedList.sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'modtime') {
-        const aTime = Number(a['modtime'] ?? a.modified ?? 0);
-        const bTime = Number(b['modtime'] ?? b.modified ?? 0);
-        comparison = aTime - bTime;
+        comparison = parseModTime(a) - parseModTime(b);
       } else if (sortBy === 'name') {
         comparison = (a.name || '').localeCompare(b.name || '');
       } else if (sortBy === 'type') {
