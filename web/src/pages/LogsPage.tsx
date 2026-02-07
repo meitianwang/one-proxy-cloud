@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -366,6 +366,32 @@ const copyToClipboard = async (text: string) => {
       return false;
     }
   }
+};
+
+const highlightText = (text: string, query: string, className: string): ReactNode => {
+  if (!query || !text) return text;
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  let index = lowerText.indexOf(lowerQuery);
+  let key = 0;
+  while (index !== -1) {
+    if (index > lastIndex) {
+      parts.push(text.slice(lastIndex, index));
+    }
+    parts.push(
+      <mark key={key++} className={className}>
+        {text.slice(index, index + query.length)}
+      </mark>
+    );
+    lastIndex = index + query.length;
+    index = lowerText.indexOf(lowerQuery, lastIndex);
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts.length > 0 ? parts : text;
 };
 
 type TabType = 'logs' | 'errors';
@@ -937,7 +963,11 @@ export function LogsPage() {
                             defaultValue: 'Double-click to copy',
                           })}
                         >
-                          <div className={styles.timestamp}>{line.timestamp || ''}</div>
+                          <div className={styles.timestamp}>
+                            {trimmedSearchQuery
+                              ? highlightText(line.timestamp || '', trimmedSearchQuery, styles.highlight)
+                              : line.timestamp || ''}
+                          </div>
                           <div className={styles.rowMain}>
                             {line.level && (
                               <span
@@ -960,7 +990,9 @@ export function LogsPage() {
 
                             {line.source && (
                               <span className={styles.source} title={line.source}>
-                                {line.source}
+                                {trimmedSearchQuery
+                                  ? highlightText(line.source, trimmedSearchQuery, styles.highlight)
+                                  : line.source}
                               </span>
                             )}
 
@@ -969,7 +1001,9 @@ export function LogsPage() {
                                 className={[styles.badge, styles.requestIdBadge].join(' ')}
                                 title={line.requestId}
                               >
-                                {line.requestId}
+                                {trimmedSearchQuery
+                                  ? highlightText(line.requestId, trimmedSearchQuery, styles.highlight)
+                                  : line.requestId}
                               </span>
                             )}
 
@@ -991,8 +1025,20 @@ export function LogsPage() {
                               </span>
                             )}
 
-                            {line.latency && <span className={styles.pill}>{line.latency}</span>}
-                            {line.ip && <span className={styles.pill}>{line.ip}</span>}
+                            {line.latency && (
+                              <span className={styles.pill}>
+                                {trimmedSearchQuery
+                                  ? highlightText(line.latency, trimmedSearchQuery, styles.highlight)
+                                  : line.latency}
+                              </span>
+                            )}
+                            {line.ip && (
+                              <span className={styles.pill}>
+                                {trimmedSearchQuery
+                                  ? highlightText(line.ip, trimmedSearchQuery, styles.highlight)
+                                  : line.ip}
+                              </span>
+                            )}
 
                             {line.method && (
                               <span className={[styles.badge, styles.methodBadge].join(' ')}>
@@ -1002,11 +1048,19 @@ export function LogsPage() {
 
                             {line.path && (
                               <span className={styles.path} title={line.path}>
-                                {line.path}
+                                {trimmedSearchQuery
+                                  ? highlightText(line.path, trimmedSearchQuery, styles.highlight)
+                                  : line.path}
                               </span>
                             )}
 
-                            {line.message && <span className={styles.message}>{line.message}</span>}
+                            {line.message && (
+                              <span className={styles.message}>
+                                {trimmedSearchQuery
+                                  ? highlightText(line.message, trimmedSearchQuery, styles.highlight)
+                                  : line.message}
+                              </span>
+                            )}
                           </div>
                         </div>
                       );

@@ -211,6 +211,7 @@ export function AuthFilesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | string>('all');
+  const [tierFilter, setTierFilter] = useState<'all' | string>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(9);
@@ -589,19 +590,73 @@ export function AuthFilesPage() {
     return counts;
   }, [files]);
 
+  // Helper to get normalized subscription tier for filtering
+  const getItemSubscriptionTier = useCallback((item: AuthFileItem): string | null => {
+    if (!isAntigravityFile(item)) return null;
+    const quota = antigravityQuota[item.name];
+    if (quota?.status === 'success' && 'subscriptionTier' in quota && quota.subscriptionTier) {
+      const tier = quota.subscriptionTier.toLowerCase();
+      if (tier.includes('pro')) return 'PRO';
+      if (tier.includes('ultra')) return 'ULTRA';
+      if (tier.includes('free') || tier.includes('legacy')) return 'FREE';
+      return quota.subscriptionTier.toUpperCase();
+    }
+    // Fallback to auth file metadata
+    const accountType = item['account_type'] ?? item.accountType;
+    if (typeof accountType === 'string' && accountType.trim()) {
+      const tier = accountType.toLowerCase();
+      if (tier.includes('pro')) return 'PRO';
+      if (tier.includes('ultra')) return 'ULTRA';
+      if (tier.includes('free') || tier.includes('legacy')) return 'FREE';
+      return accountType.toUpperCase();
+    }
+    return null;
+  }, [antigravityQuota]);
+
+  // Extract available subscription tiers for Antigravity files
+  const antigravityTiers = useMemo(() => {
+    const tiers = new Set<string>();
+    files.forEach((file) => {
+      if (!isAntigravityFile(file)) return;
+      const tier = getItemSubscriptionTier(file);
+      if (tier) tiers.add(tier);
+    });
+    return Array.from(tiers).sort();
+  }, [files, getItemSubscriptionTier]);
+
+  // Tier counts for Antigravity files
+  const tierCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: 0 };
+    files.forEach((file) => {
+      if (!isAntigravityFile(file)) return;
+      counts.all = (counts.all || 0) + 1;
+      const tier = getItemSubscriptionTier(file);
+      if (tier) {
+        counts[tier] = (counts[tier] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [files, getItemSubscriptionTier]);
+
   // 过滤和搜索
   const filtered = useMemo(() => {
     return files.filter((item) => {
       const matchType = filter === 'all' || item.type === filter;
+      // Subscription tier filter (only for Antigravity when filter is Antigravity)
+      const isAntigravityFilter = filter.toLowerCase() === 'antigravity';
+      const matchTier = tierFilter === 'all' ||
+        !isAntigravityFile(item) ||
+        !isAntigravityFilter ||
+        getItemSubscriptionTier(item) === tierFilter;
       const term = search.trim().toLowerCase();
       const matchSearch =
         !term ||
         item.name.toLowerCase().includes(term) ||
         (item.type || '').toString().toLowerCase().includes(term) ||
         (item.provider || '').toString().toLowerCase().includes(term);
-      return matchType && matchSearch;
+      return matchType && matchTier && matchSearch;
     });
-  }, [files, filter, search]);
+  }, [files, filter, tierFilter, search, getItemSubscriptionTier]);
 
   // 分页计算
   const totalPages = showAll ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -1340,6 +1395,7 @@ export function AuthFilesPage() {
             }}
             onClick={() => {
               setFilter(type);
+              setTierFilter('all'); // Reset tier filter when changing type filter
               setPage(1);
             }}
           >
@@ -1350,6 +1406,56 @@ export function AuthFilesPage() {
       })}
     </div>
   );
+
+  // 渲染订阅等级二级筛选器（仅在选择 Antigravity 时显示）
+  const renderTierFilter = () => {
+    const isAntigravityFilter = filter.toLowerCase() === 'antigravity';
+    if (!isAntigravityFilter || antigravityTiers.length === 0) return null;
+
+    const typeColor = getTypeColor('antigravity');
+    const activeTextColor = resolvedTheme === 'dark' ? '#111827' : '#fff';
+
+    return (
+      <div className={styles.tierFilterSection}>
+        <span className={styles.tierFilterLabel}>{t('auth_files.subscription_level')}:</span>
+        <div className={styles.tierFilterTags}>
+          <button
+            className={`${styles.tierFilterTag} ${tierFilter === 'all' ? styles.tierFilterTagActive : ''}`}
+            style={{
+              backgroundColor: tierFilter === 'all' ? typeColor.text : typeColor.bg,
+              color: tierFilter === 'all' ? activeTextColor : typeColor.text,
+              borderColor: typeColor.text,
+            }}
+            onClick={() => {
+              setTierFilter('all');
+              setPage(1);
+            }}
+          >
+            <span className={styles.tierFilterTagLabel}>{t('auth_files.filter_all')}</span>
+            <span className={styles.tierFilterTagCount}>{tierCounts.all ?? 0}</span>
+          </button>
+          {antigravityTiers.map((tier) => (
+            <button
+              key={tier}
+              className={`${styles.tierFilterTag} ${tierFilter === tier ? styles.tierFilterTagActive : ''}`}
+              style={{
+                backgroundColor: tierFilter === tier ? typeColor.text : typeColor.bg,
+                color: tierFilter === tier ? activeTextColor : typeColor.text,
+                borderColor: typeColor.text,
+              }}
+              onClick={() => {
+                setTierFilter(tier);
+                setPage(1);
+              }}
+            >
+              <span className={styles.tierFilterTagLabel}>{tier}</span>
+              <span className={styles.tierFilterTagCount}>{tierCounts[tier] ?? 0}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   // 预计算所有认证文件的状态栏数据（避免每次渲染重复计算）
   const statusBarCache = useMemo(() => {
@@ -1424,6 +1530,16 @@ export function AuthFilesPage() {
       }
     }
     if (isAntigravityFile(item)) {
+      // First try to get from quota API response
+      const quota = antigravityQuota[item.name];
+      if (quota?.status === 'success' && 'subscriptionTier' in quota && quota.subscriptionTier) {
+        const tier = quota.subscriptionTier.toLowerCase();
+        if (tier.includes('pro')) return 'PRO';
+        if (tier.includes('ultra')) return 'ULTRA';
+        if (tier.includes('free') || tier.includes('legacy')) return 'FREE';
+        return quota.subscriptionTier;
+      }
+      // Fallback to auth file metadata
       const accountType = item['account_type'] ?? item.accountType;
       if (typeof accountType === 'string' && accountType.trim()) {
         return accountType;
@@ -1726,6 +1842,7 @@ export function AuthFilesPage() {
         {/* 筛选区域 */}
         <div className={styles.filterSection}>
           {renderFilterTags()}
+          {renderTierFilter()}
 
           <div className={styles.filterControls}>
             <div className={styles.filterItem}>

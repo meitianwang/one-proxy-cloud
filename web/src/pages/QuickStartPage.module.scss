@@ -332,3 +332,74 @@
   color: var(--text-secondary);
   font-size: 12px;
 }
+
+// Claude Code Config styles
+.claudeCodeConfig {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.claudeConfigGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.claudeConfigField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.claudeConfigLabel {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.claudeConfigSelect {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary-light, rgba(99, 102, 241, 0.2));
+  }
+}
+
+.claudeConfigActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.savedIndicator {
+  font-size: 0.875rem;
+  color: var(--color-success, #22c55e);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.claudeConfigNote {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0;
+}

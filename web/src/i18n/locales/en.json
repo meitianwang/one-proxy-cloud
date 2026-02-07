@@ -974,5 +974,19 @@
     "test_command": "Test Command",
     "copy_success": "Copied to clipboard",
     "copied": "Copied"
+  },
+  "claude_code_config": {
+    "title": "Claude Code Config",
+    "description": "Configure ~/.claude/settings.json model mappings for Claude Code CLI",
+    "opus_model": "Opus Model",
+    "sonnet_model": "Sonnet Model",
+    "haiku_model": "Haiku Model",
+    "select_model": "Select model...",
+    "save_button": "Save Config",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "save_success": "Claude Code config saved successfully",
+    "save_error": "Failed to save Claude Code config",
+    "note": "Config will be written to ~/.claude/settings.json. Restart Claude Code for changes to take effect."
   }
 }

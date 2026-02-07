@@ -110,6 +110,62 @@
   opacity: 0.85;
 }
 
+// 订阅等级二级筛选器
+.tierFilterSection {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+  padding: $spacing-sm $spacing-md;
+  background-color: var(--bg-secondary);
+  border-radius: $radius-md;
+}
+
+.tierFilterLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tierFilterTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-xs;
+}
+
+.tierFilterTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: $shadow-sm;
+  }
+}
+
+.tierFilterTagActive {
+  font-weight: 600;
+}
+
+.tierFilterTagLabel {
+  white-space: nowrap;
+}
+
+.tierFilterTagCount {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
 .filterControls {
   display: flex;
   gap: $spacing-md;

@@ -2,8 +2,6 @@
  * Quota configuration definitions.
  */
 
-import React from 'react';
-import type { ReactNode } from 'react';
 import type { TFunction } from 'i18next';
 import type {
   AntigravityQuotaGroup,
@@ -21,6 +19,7 @@ import type {
 import { apiCallApi, authFilesApi, getApiCallErrorMessage } from '@/services/api';
 import {
   ANTIGRAVITY_QUOTA_URLS,
+  ANTIGRAVITY_LOAD_CODE_ASSIST_URLS,
   ANTIGRAVITY_REQUEST_HEADERS,
   CODEX_USAGE_URL,
   CODEX_REQUEST_HEADERS,
@@ -38,7 +37,6 @@ import {
   resolveCodexPlanType,
   resolveGeminiCliProjectId,
   formatCodexResetLabel,
-  formatQuotaResetTime,
   buildAntigravityQuotaGroups,
   buildGeminiCliQuotaBuckets,
   createStatusError,
@@ -49,8 +47,6 @@ import {
   isGeminiCliFile,
   isRuntimeOnlyAuthFile
 } from '@/utils/quota';
-import type { QuotaRenderHelpers } from './QuotaCard';
-import styles from '@/pages/QuotaPage.module.scss';
 
 type QuotaUpdater<T> = T | ((prev: T) => T);
 
@@ -78,11 +74,6 @@ export interface QuotaConfig<TState, TData> {
   buildLoadingState: () => TState;
   buildSuccessState: (data: TData) => TState;
   buildErrorState: (message: string, status?: number) => TState;
-  cardClassName: string;
-  controlsClassName: string;
-  controlClassName: string;
-  gridClassName: string;
-  renderQuotaItems: (quota: TState, t: TFunction, helpers: QuotaRenderHelpers) => ReactNode;
 }
 
 const resolveAntigravityProjectId = async (file: AuthFileItem): Promise<string> => {
@@ -117,10 +108,58 @@ const resolveAntigravityProjectId = async (file: AuthFileItem): Promise<string> 
   return DEFAULT_ANTIGRAVITY_PROJECT_ID;
 };
 
+const fetchAntigravitySubscriptionTier = async (
+  authIndex: string
+): Promise<string | null> => {
+  const requestBody = JSON.stringify({
+    metadata: {
+      ideType: 'ANTIGRAVITY',
+      platform: 'PLATFORM_UNSPECIFIED',
+      pluginType: 'GEMINI'
+    }
+  });
+
+  for (const url of ANTIGRAVITY_LOAD_CODE_ASSIST_URLS) {
+    try {
+      const result = await apiCallApi.request({
+        authIndex,
+        method: 'POST',
+        url,
+        header: { ...ANTIGRAVITY_REQUEST_HEADERS },
+        data: requestBody
+      });
+
+      if (result.statusCode < 200 || result.statusCode >= 300) {
+        continue;
+      }
+
+      const payload = parseAntigravityPayload(result.body ?? result.bodyText);
+      if (!payload) continue;
+
+      // Priority: paidTier > currentTier
+      const paidTier = payload.paidTier ?? payload.paid_tier;
+      const currentTier = payload.currentTier ?? payload.current_tier;
+
+      const extractTierId = (tier: unknown): string | null => {
+        if (!tier || typeof tier !== 'object') return null;
+        const t = tier as Record<string, unknown>;
+        const id = t.id ?? t.ID;
+        return typeof id === 'string' ? id.trim() || null : null;
+      };
+
+      const tierId = extractTierId(paidTier) ?? extractTierId(currentTier);
+      if (tierId) return tierId;
+    } catch {
+      // Continue to next URL
+    }
+  }
+  return null;
+};
+
 const fetchAntigravityQuota = async (
   file: AuthFileItem,
   t: TFunction
-): Promise<AntigravityQuotaGroup[]> => {
+): Promise<{ groups: AntigravityQuotaGroup[]; subscriptionTier: string | null }> => {
   const rawAuthIndex = file['auth_index'] ?? file.authIndex;
   const authIndex = normalizeAuthIndexValue(rawAuthIndex);
   if (!authIndex) {
@@ -130,10 +169,14 @@ const fetchAntigravityQuota = async (
   const projectId = await resolveAntigravityProjectId(file);
   const requestBody = JSON.stringify({ project: projectId });
 
+  // Fetch quota and subscription tier in parallel
+  const subscriptionTierPromise = fetchAntigravitySubscriptionTier(authIndex);
+
   let lastError = '';
   let lastStatus: number | undefined;
   let priorityStatus: number | undefined;
   let hadSuccess = false;
+  let groups: AntigravityQuotaGroup[] = [];
 
   for (const url of ANTIGRAVITY_QUOTA_URLS) {
     try {
@@ -162,13 +205,14 @@ const fetchAntigravityQuota = async (
         continue;
       }
 
-      const groups = buildAntigravityQuotaGroups(models as AntigravityModelsPayload);
+      groups = buildAntigravityQuotaGroups(models as AntigravityModelsPayload);
       if (groups.length === 0) {
         lastError = t('antigravity_quota.empty_models');
         continue;
       }
 
-      return groups;
+      const subscriptionTier = await subscriptionTierPromise;
+      return { groups, subscriptionTier };
     } catch (err: unknown) {
       lastError = err instanceof Error ? err.message : t('common.unknown_error');
       const status = getStatusFromError(err);
@@ -182,7 +226,8 @@ const fetchAntigravityQuota = async (
   }
 
   if (hadSuccess) {
-    return [];
+    const subscriptionTier = await subscriptionTierPromise;
+    return { groups: [], subscriptionTier };
   }
 
   throw createStatusError(lastError || t('common.unknown_error'), priorityStatus ?? lastStatus);
@@ -342,182 +387,10 @@ const fetchGeminiCliQuota = async (
   return buildGeminiCliQuotaBuckets(parsedBuckets);
 };
 
-const renderAntigravityItems = (
-  quota: AntigravityQuotaState,
-  t: TFunction,
-  helpers: QuotaRenderHelpers
-): ReactNode => {
-  const { styles: styleMap, QuotaProgressBar } = helpers;
-  const { createElement: h } = React;
-  const groups = quota.groups ?? [];
-
-  if (groups.length === 0) {
-    return h('div', { className: styleMap.quotaMessage }, t('antigravity_quota.empty_models'));
-  }
-
-  return groups.map((group) => {
-    const clamped = Math.max(0, Math.min(1, group.remainingFraction));
-    const percent = Math.round(clamped * 100);
-    const resetLabel = formatQuotaResetTime(group.resetTime);
-
-    return h(
-      'div',
-      { key: group.id, className: styleMap.quotaRow },
-      h(
-        'div',
-        { className: styleMap.quotaRowHeader },
-        h(
-          'span',
-          { className: styleMap.quotaModel, title: group.models.join(', ') },
-          group.label
-        ),
-        h(
-          'div',
-          { className: styleMap.quotaMeta },
-          h('span', { className: styleMap.quotaPercent }, `${percent}%`),
-          h('span', { className: styleMap.quotaReset }, resetLabel)
-        )
-      ),
-      h(QuotaProgressBar, { percent, highThreshold: 60, mediumThreshold: 20 })
-    );
-  });
-};
-
-const renderCodexItems = (
-  quota: CodexQuotaState,
-  t: TFunction,
-  helpers: QuotaRenderHelpers
-): ReactNode => {
-  const { styles: styleMap, QuotaProgressBar } = helpers;
-  const { createElement: h, Fragment } = React;
-  const windows = quota.windows ?? [];
-  const planType = quota.planType ?? null;
-
-  const getPlanLabel = (pt?: string | null): string | null => {
-    const normalized = normalizePlanType(pt);
-    if (!normalized) return null;
-    if (normalized === 'plus') return t('codex_quota.plan_plus');
-    if (normalized === 'team') return t('codex_quota.plan_team');
-    if (normalized === 'free') return t('codex_quota.plan_free');
-    return pt || normalized;
-  };
-
-  const planLabel = getPlanLabel(planType);
-  const isFreePlan = normalizePlanType(planType) === 'free';
-  const nodes: ReactNode[] = [];
-
-  if (planLabel) {
-    nodes.push(
-      h(
-        'div',
-        { key: 'plan', className: styleMap.codexPlan },
-        h('span', { className: styleMap.codexPlanLabel }, t('codex_quota.plan_label')),
-        h('span', { className: styleMap.codexPlanValue }, planLabel)
-      )
-    );
-  }
-
-  if (isFreePlan) {
-    nodes.push(
-      h(
-        'div',
-        { key: 'warning', className: styleMap.quotaWarning },
-        t('codex_quota.no_access')
-      )
-    );
-    return h(Fragment, null, ...nodes);
-  }
-
-  if (windows.length === 0) {
-    nodes.push(
-      h('div', { key: 'empty', className: styleMap.quotaMessage }, t('codex_quota.empty_windows'))
-    );
-    return h(Fragment, null, ...nodes);
-  }
-
-  nodes.push(
-    ...windows.map((window) => {
-      const used = window.usedPercent;
-      const clampedUsed = used === null ? null : Math.max(0, Math.min(100, used));
-      const remaining = clampedUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedUsed));
-      const percentLabel = remaining === null ? '--' : `${Math.round(remaining)}%`;
-      const windowLabel = window.labelKey ? t(window.labelKey) : window.label;
-
-      return h(
-        'div',
-        { key: window.id, className: styleMap.quotaRow },
-        h(
-          'div',
-          { className: styleMap.quotaRowHeader },
-          h('span', { className: styleMap.quotaModel }, windowLabel),
-          h(
-            'div',
-            { className: styleMap.quotaMeta },
-            h('span', { className: styleMap.quotaPercent }, percentLabel),
-            h('span', { className: styleMap.quotaReset }, window.resetLabel)
-          )
-        ),
-        h(QuotaProgressBar, { percent: remaining, highThreshold: 80, mediumThreshold: 50 })
-      );
-    })
-  );
-
-  return h(Fragment, null, ...nodes);
-};
-
-const renderGeminiCliItems = (
-  quota: GeminiCliQuotaState,
-  t: TFunction,
-  helpers: QuotaRenderHelpers
-): ReactNode => {
-  const { styles: styleMap, QuotaProgressBar } = helpers;
-  const { createElement: h } = React;
-  const buckets = quota.buckets ?? [];
-
-  if (buckets.length === 0) {
-    return h('div', { className: styleMap.quotaMessage }, t('gemini_cli_quota.empty_buckets'));
-  }
-
-  return buckets.map((bucket) => {
-    const fraction = bucket.remainingFraction;
-    const clamped = fraction === null ? null : Math.max(0, Math.min(1, fraction));
-    const percent = clamped === null ? null : Math.round(clamped * 100);
-    const percentLabel = percent === null ? '--' : `${percent}%`;
-    const remainingAmountLabel =
-      bucket.remainingAmount === null || bucket.remainingAmount === undefined
-        ? null
-        : t('gemini_cli_quota.remaining_amount', {
-            count: bucket.remainingAmount
-          });
-    const titleBase =
-      bucket.modelIds && bucket.modelIds.length > 0 ? bucket.modelIds.join(', ') : bucket.label;
-    const title = bucket.tokenType ? `${titleBase} (${bucket.tokenType})` : titleBase;
-
-    const resetLabel = formatQuotaResetTime(bucket.resetTime);
-
-    return h(
-      'div',
-      { key: bucket.id, className: styleMap.quotaRow },
-      h(
-        'div',
-        { className: styleMap.quotaRowHeader },
-        h('span', { className: styleMap.quotaModel, title }, bucket.label),
-        h(
-          'div',
-          { className: styleMap.quotaMeta },
-          h('span', { className: styleMap.quotaPercent }, percentLabel),
-          remainingAmountLabel
-            ? h('span', { className: styleMap.quotaAmount }, remainingAmountLabel)
-            : null,
-          h('span', { className: styleMap.quotaReset }, resetLabel)
-        )
-      ),
-      h(QuotaProgressBar, { percent, highThreshold: 60, mediumThreshold: 20 })
-    );
-  });
-};
-
-export const ANTIGRAVITY_CONFIG: QuotaConfig<AntigravityQuotaState, AntigravityQuotaGroup[]> = {
+export const ANTIGRAVITY_CONFIG: QuotaConfig<
+  AntigravityQuotaState,
+  { groups: AntigravityQuotaGroup[]; subscriptionTier: string | null }
+> = {
   type: 'antigravity',
   i18nPrefix: 'antigravity_quota',
   filterFn: (file) => isAntigravityFile(file) && !isDisabledAuthFile(file),
@@ -525,18 +398,17 @@ export const ANTIGRAVITY_CONFIG: QuotaConfig<AntigravityQuotaState, AntigravityQ
   storeSelector: (state) => state.antigravityQuota,
   storeSetter: 'setAntigravityQuota',
   buildLoadingState: () => ({ status: 'loading', groups: [] }),
-  buildSuccessState: (groups) => ({ status: 'success', groups }),
+  buildSuccessState: (data) => ({
+    status: 'success',
+    groups: data.groups,
+    subscriptionTier: data.subscriptionTier
+  }),
   buildErrorState: (message, status) => ({
     status: 'error',
     groups: [],
     error: message,
     errorStatus: status
-  }),
-  cardClassName: styles.antigravityCard,
-  controlsClassName: styles.antigravityControls,
-  controlClassName: styles.antigravityControl,
-  gridClassName: styles.antigravityGrid,
-  renderQuotaItems: renderAntigravityItems
+  })
 };
 
 export const CODEX_CONFIG: QuotaConfig<
@@ -560,12 +432,7 @@ export const CODEX_CONFIG: QuotaConfig<
     windows: [],
     error: message,
     errorStatus: status
-  }),
-  cardClassName: styles.codexCard,
-  controlsClassName: styles.codexControls,
-  controlClassName: styles.codexControl,
-  gridClassName: styles.codexGrid,
-  renderQuotaItems: renderCodexItems
+  })
 };
 
 export const GEMINI_CLI_CONFIG: QuotaConfig<GeminiCliQuotaState, GeminiCliQuotaBucketState[]> = {
@@ -583,10 +450,5 @@ export const GEMINI_CLI_CONFIG: QuotaConfig<GeminiCliQuotaState, GeminiCliQuotaB
     buckets: [],
     error: message,
     errorStatus: status
-  }),
-  cardClassName: styles.geminiCliCard,
-  controlsClassName: styles.geminiCliControls,
-  controlClassName: styles.geminiCliControl,
-  gridClassName: styles.geminiCliGrid,
-  renderQuotaItems: renderGeminiCliItems
+  })
 };

@@ -974,5 +974,19 @@
     "test_command": "测试命令",
     "copy_success": "已复制到剪贴板",
     "copied": "已复制"
+  },
+  "claude_code_config": {
+    "title": "Claude Code 配置",
+    "description": "配置 ~/.claude/settings.json 模型映射，用于 Claude Code CLI",
+    "opus_model": "Opus 模型",
+    "sonnet_model": "Sonnet 模型",
+    "haiku_model": "Haiku 模型",
+    "select_model": "选择模型...",
+    "save_button": "写入配置",
+    "saving": "保存中...",
+    "saved": "已保存",
+    "save_success": "Claude Code 配置保存成功",
+    "save_error": "保存 Claude Code 配置失败",
+    "note": "配置将写入 ~/.claude/settings.json，保存后需要重启 Claude Code 生效。"
   }
 }

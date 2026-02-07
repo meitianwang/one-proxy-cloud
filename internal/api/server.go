@@ -627,6 +627,10 @@ func (s *Server) registerManagementRoutes() {
 		mgmt.POST("/iflow-auth-url", s.mgmt.RequestIFlowCookieToken)
 		mgmt.POST("/oauth-callback", s.mgmt.PostOAuthCallback)
 		mgmt.GET("/get-auth-status", s.mgmt.GetAuthStatus)
+
+		mgmt.GET("/claude-code-config", s.mgmt.GetClaudeCodeConfig)
+		mgmt.PUT("/claude-code-config", s.mgmt.PutClaudeCodeConfig)
+		mgmt.PATCH("/claude-code-config", s.mgmt.PutClaudeCodeConfig)
 	}
 }
 

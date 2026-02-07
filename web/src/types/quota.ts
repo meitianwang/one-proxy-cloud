@@ -109,6 +109,7 @@ export interface AntigravityQuotaGroup {
 export interface AntigravityQuotaState {
   status: 'idle' | 'loading' | 'success' | 'error';
   groups: AntigravityQuotaGroup[];
+  subscriptionTier?: string | null;
   error?: string;
   errorStatus?: number;
 }

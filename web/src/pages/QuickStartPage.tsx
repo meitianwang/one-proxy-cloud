@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useAuthStore, useNotificationStore, useConfigStore, useModelsStore } from '@/stores';
 import { apiKeysApi } from '@/services/api/apiKeys';
+import { claudeCodeConfigApi, type ClaudeCodeConfig } from '@/services/api/claudeCodeConfig';
 import { classifyModels } from '@/utils/models';
 import { IconCode } from '@/components/ui/icons';
 import styles from './QuickStartPage.module.scss';
@@ -47,10 +48,19 @@ export function QuickStartPage() {
     const [selectedModel, setSelectedModel] = useState<string>('');
     const [userApiKey, setUserApiKey] = useState<string>('');
 
+    // Claude Code config state
+    const [claudeConfig, setClaudeConfig] = useState<ClaudeCodeConfig>({
+        opus_model: '',
+        sonnet_model: '',
+        haiku_model: ''
+    });
+    const [claudeConfigSaving, setClaudeConfigSaving] = useState(false);
+    const [claudeConfigSaved, setClaudeConfigSaved] = useState(false);
+
     const protocols: Protocol[] = useMemo(() => [
         { id: 'openai', name: t('quick_start.protocol_openai'), endpoint: '/v1/chat/completions' },
         { id: 'anthropic', name: t('quick_start.protocol_anthropic'), endpoint: '/v1/messages' },
-        { id: 'gemini', name: t('quick_start.protocol_gemini'), endpoint: '/gemini/v1beta' },
+        { id: 'gemini', name: t('quick_start.protocol_gemini'), endpoint: '/v1beta' },
     ], [t]);
 
     const otherLabel = useMemo(
@@ -179,6 +189,37 @@ export function QuickStartPage() {
         }
     }, [connectionStatus, resolveApiKeysForModels]);
 
+    // Load Claude Code config on mount
+    useEffect(() => {
+        const loadClaudeConfig = async () => {
+            if (connectionStatus !== 'connected') return;
+            try {
+                const config = await claudeCodeConfigApi.get();
+                setClaudeConfig(config);
+            } catch (err) {
+                console.warn('Failed to load Claude Code config:', err);
+            }
+        };
+        loadClaudeConfig();
+    }, [connectionStatus]);
+
+    // Save Claude Code config
+    const saveClaudeCodeConfig = async () => {
+        setClaudeConfigSaving(true);
+        setClaudeConfigSaved(false);
+        try {
+            await claudeCodeConfigApi.save(claudeConfig);
+            setClaudeConfigSaved(true);
+            showNotification(t('claude_code_config.save_success'), 'success');
+            setTimeout(() => setClaudeConfigSaved(false), 2000);
+        } catch (err) {
+            console.error('Failed to save Claude Code config:', err);
+            showNotification(t('claude_code_config.save_error'), 'error');
+        } finally {
+            setClaudeConfigSaving(false);
+        }
+    };
+
     // Generate curl command based on selected protocol and model
     const generateCurlCommand = useMemo(() => {
         const hasApiKey = userApiKey.length > 0;
@@ -209,7 +250,7 @@ ${authHeader}  -H "anthropic-version: 2024-01-01" \\
         } else {
             // Gemini
             const keyParam = hasApiKey ? `?key=${apiKey}` : '';
-            return `curl -X POST "${proxyUrl}/gemini/v1beta/models/${selectedModel || 'gemini-2.5-flash'}:generateContent${keyParam}" \\
+            return `curl -X POST "${proxyUrl}/v1beta/models/${selectedModel || 'gemini-2.5-flash'}:generateContent${keyParam}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "contents": [{"parts": [{"text": "Hello"}]}]
@@ -285,12 +326,12 @@ ${authHeader}  -H "anthropic-version: 2024-01-01" \\
                     <div className={styles.infoRow}>
                         <span className={styles.infoLabel}>{t('quick_start.gemini_endpoint')}</span>
                         <div className={styles.infoValue}>
-                            <code className={styles.urlCode}>{proxyUrl}/gemini/v1beta</code>
+                            <code className={styles.urlCode}>{proxyUrl}/v1beta</code>
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                    copyToClipboard(`${proxyUrl}/gemini/v1beta`);
+                                    copyToClipboard(`${proxyUrl}/v1beta`);
                                     showNotification(t('quick_start.copy_success'), 'success');
                                 }}
                             >
@@ -363,6 +404,84 @@ ${authHeader}  -H "anthropic-version: 2024-01-01" \\
                             <code>{generateCurlCommand}</code>
                         </pre>
                     </div>
+                </div>
+            </Card>
+
+            {/* Claude Code Config */}
+            <Card
+                title={
+                    <div className={styles.protocolCardTitle}>
+                        <IconCode size={20} />
+                        <span>{t('claude_code_config.title')}</span>
+                    </div>
+                }
+            >
+                <p className={styles.hint}>{t('claude_code_config.description')}</p>
+
+                <div className={styles.claudeCodeConfig}>
+                    <div className={styles.claudeConfigGrid}>
+                        <div className={styles.claudeConfigField}>
+                            <label className={styles.claudeConfigLabel}>{t('claude_code_config.opus_model')}</label>
+                            <select
+                                value={claudeConfig.opus_model}
+                                onChange={(e) => setClaudeConfig({ ...claudeConfig, opus_model: e.target.value })}
+                                className={styles.claudeConfigSelect}
+                            >
+                                <option value="">{t('claude_code_config.select_model')}</option>
+                                {flatModels.map((model) => (
+                                    <option key={model.name} value={model.name}>
+                                        {model.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className={styles.claudeConfigField}>
+                            <label className={styles.claudeConfigLabel}>{t('claude_code_config.sonnet_model')}</label>
+                            <select
+                                value={claudeConfig.sonnet_model}
+                                onChange={(e) => setClaudeConfig({ ...claudeConfig, sonnet_model: e.target.value })}
+                                className={styles.claudeConfigSelect}
+                            >
+                                <option value="">{t('claude_code_config.select_model')}</option>
+                                {flatModels.map((model) => (
+                                    <option key={model.name} value={model.name}>
+                                        {model.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className={styles.claudeConfigField}>
+                            <label className={styles.claudeConfigLabel}>{t('claude_code_config.haiku_model')}</label>
+                            <select
+                                value={claudeConfig.haiku_model}
+                                onChange={(e) => setClaudeConfig({ ...claudeConfig, haiku_model: e.target.value })}
+                                className={styles.claudeConfigSelect}
+                            >
+                                <option value="">{t('claude_code_config.select_model')}</option>
+                                {flatModels.map((model) => (
+                                    <option key={model.name} value={model.name}>
+                                        {model.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className={styles.claudeConfigActions}>
+                        {claudeConfigSaved && (
+                            <span className={styles.savedIndicator}>{t('claude_code_config.saved')}</span>
+                        )}
+                        <Button
+                            onClick={saveClaudeCodeConfig}
+                            disabled={claudeConfigSaving}
+                        >
+                            {claudeConfigSaving ? t('claude_code_config.saving') : t('claude_code_config.save_button')}
+                        </Button>
+                    </div>
+
+                    <p className={styles.claudeConfigNote}>{t('claude_code_config.note')}</p>
                 </div>
             </Card>
         </div>
