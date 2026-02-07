@@ -219,7 +219,7 @@ export function AuthFilesPage() {
   const [pageSize, setPageSize] = useState(9);
   const [pageSizeInput, setPageSizeInput] = useState('9');
   const [showAll, setShowAll] = useState(false);
-  const [sortBy, setSortBy] = useState<'modtime' | 'name' | 'type'>('modtime');
+  const [sortBy, setSortBy] = useState<'modtime' | 'name' | 'type' | 'failures' | 'quota' | 'resetTime'>('modtime');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -289,7 +289,7 @@ export function AuthFilesPage() {
     if (typeof persisted.showAll === 'boolean') {
       setShowAll(persisted.showAll);
     }
-    if (persisted.sortBy === 'modtime' || persisted.sortBy === 'name' || persisted.sortBy === 'type') {
+    if (persisted.sortBy === 'modtime' || persisted.sortBy === 'name' || persisted.sortBy === 'type' || persisted.sortBy === 'failures' || persisted.sortBy === 'quota' || persisted.sortBy === 'resetTime') {
       setSortBy(persisted.sortBy);
     }
     if (persisted.sortOrder === 'asc' || persisted.sortOrder === 'desc') {
@@ -671,6 +671,36 @@ export function AuthFilesPage() {
   // 排序
   const sorted = useMemo(() => {
     const sortedList = [...filtered];
+
+    // Helper to get failure count for a file
+    const getFailureCount = (file: AuthFileItem): number => {
+      const stats = resolveAuthFileStats(file, keyStats);
+      return stats.failure;
+    };
+
+    // Helper to get minimum remaining quota fraction for Antigravity files
+    const getMinQuotaFraction = (file: AuthFileItem): number => {
+      if (!isAntigravityFile(file)) return 1;
+      const quota = antigravityQuota[file.name];
+      if (quota?.status !== 'success' || !('groups' in quota)) return 1;
+      const groups = (quota as AntigravityQuotaState).groups || [];
+      if (groups.length === 0) return 1;
+      return Math.min(...groups.map((g) => g.remainingFraction));
+    };
+
+    // Helper to get earliest reset time for Antigravity files
+    const getEarliestResetTime = (file: AuthFileItem): number => {
+      if (!isAntigravityFile(file)) return Infinity;
+      const quota = antigravityQuota[file.name];
+      if (quota?.status !== 'success' || !('groups' in quota)) return Infinity;
+      const groups = (quota as AntigravityQuotaState).groups || [];
+      const resetTimes = groups
+        .filter((g) => g.resetTime)
+        .map((g) => new Date(g.resetTime!).getTime());
+      if (resetTimes.length === 0) return Infinity;
+      return Math.min(...resetTimes);
+    };
+
     sortedList.sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'modtime') {
@@ -681,11 +711,17 @@ export function AuthFilesPage() {
         comparison = (a.name || '').localeCompare(b.name || '');
       } else if (sortBy === 'type') {
         comparison = (a.type || '').localeCompare(b.type || '');
+      } else if (sortBy === 'failures') {
+        comparison = getFailureCount(a) - getFailureCount(b);
+      } else if (sortBy === 'quota') {
+        comparison = getMinQuotaFraction(a) - getMinQuotaFraction(b);
+      } else if (sortBy === 'resetTime') {
+        comparison = getEarliestResetTime(a) - getEarliestResetTime(b);
       }
       return sortOrder === 'desc' ? -comparison : comparison;
     });
     return sortedList;
-  }, [filtered, sortBy, sortOrder]);
+  }, [filtered, sortBy, sortOrder, keyStats, antigravityQuota]);
 
   // 分页计算
   const totalPages = showAll ? 1 : Math.max(1, Math.ceil(sorted.length / pageSize));
@@ -1925,13 +1961,20 @@ export function AuthFilesPage() {
                   className={styles.sortSelect}
                   value={sortBy}
                   onChange={(e) => {
-                    setSortBy(e.target.value as 'modtime' | 'name' | 'type');
+                    setSortBy(e.target.value as 'modtime' | 'name' | 'type' | 'failures' | 'quota' | 'resetTime');
                     setPage(1);
                   }}
                 >
                   <option value="modtime">{t('auth_files.sort_modtime')}</option>
                   <option value="name">{t('auth_files.sort_name')}</option>
                   <option value="type">{t('auth_files.sort_type')}</option>
+                  {filter.toLowerCase() === 'antigravity' && (
+                    <>
+                      <option value="failures">{t('auth_files.sort_failures')}</option>
+                      <option value="quota">{t('auth_files.sort_quota')}</option>
+                      <option value="resetTime">{t('auth_files.sort_reset_time')}</option>
+                    </>
+                  )}
                 </select>
                 <Button
                   variant="secondary"
