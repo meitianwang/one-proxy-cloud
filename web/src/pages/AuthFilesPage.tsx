@@ -106,6 +106,8 @@ type AuthFilesUiState = {
   page?: number;
   pageSize?: number;
   showAll?: boolean;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 };
 
 const readAuthFilesUiState = (): AuthFilesUiState | null => {
@@ -217,6 +219,8 @@ export function AuthFilesPage() {
   const [pageSize, setPageSize] = useState(9);
   const [pageSizeInput, setPageSizeInput] = useState('9');
   const [showAll, setShowAll] = useState(false);
+  const [sortBy, setSortBy] = useState<'modtime' | 'name' | 'type'>('modtime');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
@@ -285,11 +289,17 @@ export function AuthFilesPage() {
     if (typeof persisted.showAll === 'boolean') {
       setShowAll(persisted.showAll);
     }
+    if (persisted.sortBy === 'modtime' || persisted.sortBy === 'name' || persisted.sortBy === 'type') {
+      setSortBy(persisted.sortBy);
+    }
+    if (persisted.sortOrder === 'asc' || persisted.sortOrder === 'desc') {
+      setSortOrder(persisted.sortOrder);
+    }
   }, []);
 
   useEffect(() => {
-    writeAuthFilesUiState({ filter, search, page, pageSize, showAll });
-  }, [filter, search, page, pageSize, showAll]);
+    writeAuthFilesUiState({ filter, search, page, pageSize, showAll, sortBy, sortOrder });
+  }, [filter, search, page, pageSize, showAll, sortBy, sortOrder]);
 
   useEffect(() => {
     setPageSizeInput(String(pageSize));
@@ -658,11 +668,30 @@ export function AuthFilesPage() {
     });
   }, [files, filter, tierFilter, search, getItemSubscriptionTier]);
 
+  // 排序
+  const sorted = useMemo(() => {
+    const sortedList = [...filtered];
+    sortedList.sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'modtime') {
+        const aTime = Number(a['modtime'] ?? a.modified ?? 0);
+        const bTime = Number(b['modtime'] ?? b.modified ?? 0);
+        comparison = aTime - bTime;
+      } else if (sortBy === 'name') {
+        comparison = (a.name || '').localeCompare(b.name || '');
+      } else if (sortBy === 'type') {
+        comparison = (a.type || '').localeCompare(b.type || '');
+      }
+      return sortOrder === 'desc' ? -comparison : comparison;
+    });
+    return sortedList;
+  }, [filtered, sortBy, sortOrder]);
+
   // 分页计算
-  const totalPages = showAll ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize));
+  const totalPages = showAll ? 1 : Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = showAll ? 1 : Math.min(page, totalPages);
   const start = showAll ? 0 : (currentPage - 1) * pageSize;
-  const pageItems = showAll ? filtered : filtered.slice(start, start + pageSize);
+  const pageItems = showAll ? sorted : sorted.slice(start, start + pageSize);
 
   // 当页面项目变化时加载配额
   useEffect(() => {
@@ -1888,6 +1917,31 @@ export function AuthFilesPage() {
               >
                 {showAll ? t('auth_files.view_mode_all') : t('auth_files.view_mode_paged')}
               </Button>
+            </div>
+            <div className={styles.filterItem}>
+              <label>{t('auth_files.sort_label')}</label>
+              <div className={styles.sortControls}>
+                <select
+                  className={styles.sortSelect}
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value as 'modtime' | 'name' | 'type');
+                    setPage(1);
+                  }}
+                >
+                  <option value="modtime">{t('auth_files.sort_modtime')}</option>
+                  <option value="name">{t('auth_files.sort_name')}</option>
+                  <option value="type">{t('auth_files.sort_type')}</option>
+                </select>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  title={sortOrder === 'desc' ? t('auth_files.sort_desc') : t('auth_files.sort_asc')}
+                >
+                  {sortOrder === 'desc' ? '↓' : '↑'}
+                </Button>
+              </div>
             </div>
           </div>
 
