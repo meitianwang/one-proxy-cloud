@@ -219,7 +219,7 @@ export function AuthFilesPage() {
   const [pageSize, setPageSize] = useState(9);
   const [pageSizeInput, setPageSizeInput] = useState('9');
   const [showAll, setShowAll] = useState(false);
-  const [sortBy, setSortBy] = useState<'modtime' | 'name' | 'type' | 'failures' | 'quota' | 'resetTime'>('modtime');
+  const [sortBy, setSortBy] = useState<'modtime' | 'name' | 'createtime' | 'failures' | 'quota' | 'resetTime'>('modtime');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [sortQuotaGroup, setSortQuotaGroup] = useState<string>('lowest'); // 'lowest' or specific group id
   const [uploading, setUploading] = useState(false);
@@ -290,7 +290,7 @@ export function AuthFilesPage() {
     if (typeof persisted.showAll === 'boolean') {
       setShowAll(persisted.showAll);
     }
-    if (persisted.sortBy === 'modtime' || persisted.sortBy === 'name' || persisted.sortBy === 'type' || persisted.sortBy === 'failures' || persisted.sortBy === 'quota' || persisted.sortBy === 'resetTime') {
+    if (persisted.sortBy === 'modtime' || persisted.sortBy === 'name' || persisted.sortBy === 'createtime' || persisted.sortBy === 'failures' || persisted.sortBy === 'quota' || persisted.sortBy === 'resetTime') {
       setSortBy(persisted.sortBy);
     }
     if (persisted.sortOrder === 'asc' || persisted.sortOrder === 'desc') {
@@ -750,10 +750,21 @@ export function AuthFilesPage() {
       let comparison = 0;
       if (sortBy === 'modtime') {
         comparison = parseModTime(a) - parseModTime(b);
+      } else if (sortBy === 'createtime') {
+        // Parse createtime/birthtime similar to modtime
+        const parseCreateTime = (file: AuthFileItem): number => {
+          const raw = file['birthtime'] ?? file['createtime'] ?? file.created ?? 0;
+          if (!raw) return 0;
+          const asNumber = Number(raw);
+          if (Number.isFinite(asNumber) && !Number.isNaN(asNumber)) {
+            return asNumber < 1e12 ? asNumber * 1000 : asNumber;
+          }
+          const date = new Date(String(raw));
+          return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+        };
+        comparison = parseCreateTime(a) - parseCreateTime(b);
       } else if (sortBy === 'name') {
         comparison = (a.name || '').localeCompare(b.name || '');
-      } else if (sortBy === 'type') {
-        comparison = (a.type || '').localeCompare(b.type || '');
       } else if (sortBy === 'failures') {
         comparison = getFailureCount(a) - getFailureCount(b);
       } else if (sortBy === 'quota') {
@@ -2004,13 +2015,13 @@ export function AuthFilesPage() {
                   className={styles.sortSelect}
                   value={sortBy}
                   onChange={(e) => {
-                    setSortBy(e.target.value as 'modtime' | 'name' | 'type' | 'failures' | 'quota' | 'resetTime');
+                    setSortBy(e.target.value as 'modtime' | 'name' | 'createtime' | 'failures' | 'quota' | 'resetTime');
                     setPage(1);
                   }}
                 >
                   <option value="modtime">{t('auth_files.sort_modtime')}</option>
+                  <option value="createtime">{t('auth_files.sort_createtime')}</option>
                   <option value="name">{t('auth_files.sort_name')}</option>
-                  <option value="type">{t('auth_files.sort_type')}</option>
                   {filter.toLowerCase() === 'antigravity' && (
                     <>
                       <option value="failures">{t('auth_files.sort_failures')}</option>
