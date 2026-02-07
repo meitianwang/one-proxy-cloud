@@ -380,6 +380,7 @@
     "sort_failures": "Failures",
     "sort_quota": "Remaining Quota",
     "sort_reset_time": "Quota Reset Time",
+    "sort_quota_group_lowest": "Lowest Quota Group",
     "sort_asc": "Ascending",
     "sort_desc": "Descending",
     "select_all": "Select all",

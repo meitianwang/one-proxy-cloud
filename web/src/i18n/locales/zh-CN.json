@@ -380,6 +380,7 @@
     "sort_failures": "失败次数",
     "sort_quota": "剩余配额",
     "sort_reset_time": "配额恢复时间",
+    "sort_quota_group_lowest": "配额最低的组",
     "sort_asc": "升序",
     "sort_desc": "降序",
     "select_all": "全选",

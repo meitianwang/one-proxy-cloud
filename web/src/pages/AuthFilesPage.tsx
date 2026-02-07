@@ -221,6 +221,7 @@ export function AuthFilesPage() {
   const [showAll, setShowAll] = useState(false);
   const [sortBy, setSortBy] = useState<'modtime' | 'name' | 'type' | 'failures' | 'quota' | 'resetTime'>('modtime');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortQuotaGroup, setSortQuotaGroup] = useState<string>('lowest'); // 'lowest' or specific group id
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
@@ -648,6 +649,18 @@ export function AuthFilesPage() {
     return counts;
   }, [files, getItemSubscriptionTier]);
 
+  // Extract available quota groups from loaded Antigravity quota data
+  const availableQuotaGroups = useMemo(() => {
+    const groupsSet = new Set<string>();
+    Object.values(antigravityQuota).forEach((quota) => {
+      if (quota?.status === 'success' && 'groups' in quota) {
+        const groups = (quota as AntigravityQuotaState).groups || [];
+        groups.forEach((g) => groupsSet.add(g.label || g.id));
+      }
+    });
+    return Array.from(groupsSet).sort();
+  }, [antigravityQuota]);
+
   // 过滤和搜索
   const filtered = useMemo(() => {
     return files.filter((item) => {
@@ -692,35 +705,45 @@ export function AuthFilesPage() {
       return stats.failure;
     };
 
-    // Helper to get minimum remaining quota fraction for Antigravity files
-    const getMinQuotaFraction = (file: AuthFileItem): number => {
+    // Helper to get quota fraction for a specific group or the lowest one
+    const getQuotaFraction = (file: AuthFileItem): number => {
       if (!isAntigravityFile(file)) return 1;
       const quota = antigravityQuota[file.name];
       if (quota?.status !== 'success' || !('groups' in quota)) return 1;
       const groups = (quota as AntigravityQuotaState).groups || [];
       if (groups.length === 0) return 1;
-      return Math.min(...groups.map((g) => g.remainingFraction));
+
+      if (sortQuotaGroup === 'lowest') {
+        return Math.min(...groups.map((g) => g.remainingFraction));
+      }
+      // Find the specific group
+      const group = groups.find((g) => g.id === sortQuotaGroup || g.label === sortQuotaGroup);
+      return group ? group.remainingFraction : 1;
     };
 
-    // Helper to get reset time for the quota group with lowest remaining fraction
-    // This is more useful for sorting as it shows when the most depleted quota will recover
-    const getLowestQuotaResetTime = (file: AuthFileItem): number => {
+    // Helper to get reset time for the selected quota group
+    const getQuotaResetTime = (file: AuthFileItem): number => {
       if (!isAntigravityFile(file)) return Infinity;
       const quota = antigravityQuota[file.name];
       if (quota?.status !== 'success' || !('groups' in quota)) return Infinity;
       const groups = (quota as AntigravityQuotaState).groups || [];
       if (groups.length === 0) return Infinity;
 
-      // Find the group with the lowest remaining fraction
-      let minFraction = Infinity;
-      let resetTime = Infinity;
-      for (const g of groups) {
-        if (g.remainingFraction < minFraction) {
-          minFraction = g.remainingFraction;
-          resetTime = g.resetTime ? new Date(g.resetTime).getTime() : Infinity;
+      if (sortQuotaGroup === 'lowest') {
+        // Find the group with the lowest remaining fraction
+        let minFraction = Infinity;
+        let resetTime = Infinity;
+        for (const g of groups) {
+          if (g.remainingFraction < minFraction) {
+            minFraction = g.remainingFraction;
+            resetTime = g.resetTime ? new Date(g.resetTime).getTime() : Infinity;
+          }
         }
+        return resetTime;
       }
-      return resetTime;
+      // Find the specific group
+      const group = groups.find((g) => g.id === sortQuotaGroup || g.label === sortQuotaGroup);
+      return group?.resetTime ? new Date(group.resetTime).getTime() : Infinity;
     };
 
     sortedList.sort((a, b) => {
@@ -734,14 +757,14 @@ export function AuthFilesPage() {
       } else if (sortBy === 'failures') {
         comparison = getFailureCount(a) - getFailureCount(b);
       } else if (sortBy === 'quota') {
-        comparison = getMinQuotaFraction(a) - getMinQuotaFraction(b);
+        comparison = getQuotaFraction(a) - getQuotaFraction(b);
       } else if (sortBy === 'resetTime') {
-        comparison = getLowestQuotaResetTime(a) - getLowestQuotaResetTime(b);
+        comparison = getQuotaResetTime(a) - getQuotaResetTime(b);
       }
       return sortOrder === 'desc' ? -comparison : comparison;
     });
     return sortedList;
-  }, [filtered, sortBy, sortOrder, keyStats, antigravityQuota]);
+  }, [filtered, sortBy, sortOrder, sortQuotaGroup, keyStats, antigravityQuota]);
 
   // 分页计算
   const totalPages = showAll ? 1 : Math.max(1, Math.ceil(sorted.length / pageSize));
@@ -1996,6 +2019,19 @@ export function AuthFilesPage() {
                     </>
                   )}
                 </select>
+                {/* Quota group selector - shown when sorting by quota or resetTime for Antigravity */}
+                {filter.toLowerCase() === 'antigravity' && (sortBy === 'quota' || sortBy === 'resetTime') && availableQuotaGroups.length > 0 && (
+                  <select
+                    className={styles.sortSelect}
+                    value={sortQuotaGroup}
+                    onChange={(e) => setSortQuotaGroup(e.target.value)}
+                  >
+                    <option value="lowest">{t('auth_files.sort_quota_group_lowest')}</option>
+                    {availableQuotaGroups.map((group) => (
+                      <option key={group} value={group}>{group}</option>
+                    ))}
+                  </select>
+                )}
                 <Button
                   variant="secondary"
                   size="sm"
