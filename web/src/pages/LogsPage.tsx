@@ -938,7 +938,9 @@ export function LogsPage() {
                 )}
                 {showRawLogs ? (
                   <pre className={styles.rawLog} spellCheck={false}>
-                    {rawVisibleText}
+                    {trimmedSearchQuery
+                      ? highlightText(rawVisibleText, trimmedSearchQuery, styles.highlight)
+                      : rawVisibleText}
                   </pre>
                 ) : (
                   <div className={styles.logList}>

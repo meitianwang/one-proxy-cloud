@@ -753,7 +753,7 @@ export function AuthFilesPage() {
       } else if (sortBy === 'createtime') {
         // Parse createtime/birthtime similar to modtime
         const parseCreateTime = (file: AuthFileItem): number => {
-          const raw = file['birthtime'] ?? file['createtime'] ?? file.created ?? 0;
+          const raw = file['created_at'] ?? file['birthtime'] ?? file['createtime'] ?? file.created ?? 0;
           if (!raw) return 0;
           const asNumber = Number(raw);
           if (Number.isFinite(asNumber) && !Number.isNaN(asNumber)) {
